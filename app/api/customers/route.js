@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { dbConnect } from '@/lib/db';
 import { escapeRegex } from '@/lib/format';
+import { IS_CANCELLED, IS_RETURNED, NOT_CANCELLED, countIf, sumIf } from '@/lib/agg';
 import Order from '@/models/Order';
 
 const SORTS = {
@@ -38,20 +39,25 @@ export async function GET(req) {
         city: { $first: '$customer.city' },
         state: { $first: '$customer.state' },
         pincode: { $first: '$customer.pincode' },
-        orders: { $sum: 1 },
-        returnedOrders: { $sum: { $cond: [{ $eq: ['$status', 'active'] }, 0, 1] } },
-        items: { $sum: { $size: '$items' } },
+        orders: countIf(NOT_CANCELLED),
+        cancelledOrders: countIf(IS_CANCELLED),
+        returnedOrders: countIf(IS_RETURNED),
+        items: sumIf(NOT_CANCELLED, { $size: '$items' }),
         returnedItems: {
           $sum: { $size: { $filter: { input: '$items', cond: '$$this.returned' } } },
         },
-        codOrders: { $sum: { $cond: [{ $eq: ['$paymentType', 'COD'] }, 1, 0] } },
-        totalSpent: { $sum: '$totalAmount' },
+        codOrders: countIf({ $and: [NOT_CANCELLED, { $eq: ['$paymentType', 'COD'] }] }),
+        totalSpent: sumIf(NOT_CANCELLED, '$totalAmount'),
         returnedAmount: { $sum: '$returnedAmount' },
         firstOrder: { $min: '$orderDate' },
         lastOrder: { $max: '$orderDate' },
       },
     },
-    { $addFields: { returnRate: { $divide: ['$returnedOrders', '$orders'] } } },
+    {
+      $addFields: {
+        returnRate: { $cond: [{ $gt: ['$orders', 0] }, { $divide: ['$returnedOrders', '$orders'] }, 0] },
+      },
+    },
     { $match: match },
     { $sort: SORTS[sp.get('sort')] || SORTS.orders },
     {

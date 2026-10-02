@@ -3,6 +3,7 @@
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Pagination from '@/components/Pagination';
+import CancelModal from '@/components/CancelModal';
 import OrderDetails from '@/components/OrderDetails';
 import ReturnModal from '@/components/ReturnModal';
 import StatusBadge from '@/components/StatusBadge';
@@ -29,6 +30,7 @@ function OrdersView() {
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(null); // { order, item }
   const [detailsId, setDetailsId] = useState(null);
+  const [cancelOrder, setCancelOrder] = useState(null);
   const detailsOrder = data?.orders?.find((o) => o._id === detailsId);
 
   const load = useCallback(async () => {
@@ -73,6 +75,17 @@ function OrdersView() {
     load();
   }
 
+  async function setCancelled(order, cancelled, cancelReason = '') {
+    const res = await fetch(`/api/orders/${order._id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cancelled, cancelReason }),
+    });
+    if (!res.ok) return (await res.json().catch(() => ({}))).error || 'Could not save';
+    setCancelOrder(null);
+    load();
+  }
+
   async function remove(order) {
     if (!confirm(`Delete order ${order.orderNo}? This cannot be undone.`)) return;
     await fetch(`/api/orders/${order._id}`, { method: 'DELETE' });
@@ -113,6 +126,7 @@ function OrdersView() {
           <option value="anyReturn">Any return</option>
           <option value="partial">Partly returned</option>
           <option value="returned">Fully returned</option>
+          <option value="cancelled">Cancelled</option>
         </select>
         <select value={filters.payment} onChange={(e) => apply({ payment: e.target.value })}>
           <option value="">All payments</option>
@@ -158,7 +172,10 @@ function OrdersView() {
           <div className="card stat">
             <div className="label">Orders</div>
             <div className="value">{data.summary.orders}</div>
-            <div className="sub">{data.summary.customers} customer{data.summary.customers === 1 ? '' : 's'}</div>
+            <div className="sub">
+              {data.summary.customers} customer{data.summary.customers === 1 ? '' : 's'}
+              {data.summary.cancelledOrders > 0 && ` · ${data.summary.cancelledOrders} cancelled`}
+            </div>
           </div>
           <div className="card stat">
             <div className="label">Returned</div>
@@ -226,7 +243,8 @@ function OrdersView() {
                           onClick={() => apply({ customerKey: o.customerKey })}
                           title="Show all orders of this customer"
                         >
-                          {cs.orders} order{cs.orders > 1 ? 's' : ''} · {cs.returns} returned
+                          {cs.orders} order{cs.orders === 1 ? '' : 's'} · {cs.returns} returned
+                          {cs.cancelled > 0 && ` · ${cs.cancelled} cancelled`}
                         </button>
                       )}
                     </td>
@@ -244,7 +262,7 @@ function OrdersView() {
                             <div className="muted small">
                               {it.size} · {it.color} · Qty {it.qty} · {inr(it.total)}
                             </div>
-                            {it.returned ? (
+                            {o.cancelled ? null : it.returned ? (
                               <div style={{ marginTop: 4 }}>
                                 <span className="badge badge-red">
                                   {it.returnType || 'Returned'}
@@ -285,18 +303,35 @@ function OrdersView() {
                       {o.sortCodes?.length > 0 && <div className="mono muted">{o.sortCodes.join(' · ')}</div>}
                     </td>
                     <td className="num" data-label="Amount">
-                      <strong>{inr(o.totalAmount)}</strong>
+                      <strong style={o.cancelled ? { textDecoration: 'line-through', color: 'var(--muted)' } : undefined}>
+                        {inr(o.totalAmount)}
+                      </strong>
                       {o.returnedAmount > 0 && (
                         <div className="small" style={{ color: 'var(--red)' }}>−{inr(o.returnedAmount)}</div>
                       )}
                     </td>
                     <td data-label="Status">
                       <StatusBadge status={o.status} />
+                      {o.cancelled && (
+                        <div className="muted small" style={{ marginTop: 4 }}>
+                          {fmtDate(o.cancelledAt)}
+                          {o.cancelReason && <div>{o.cancelReason}</div>}
+                        </div>
+                      )}
                     </td>
                     <td className="nowrap row-actions">
                       <button className="btn btn-sm" onClick={() => setDetailsId(o._id)} style={{ marginRight: 6 }}>
                         Details
                       </button>
+                      {o.cancelled ? (
+                        <button className="btn btn-sm" onClick={() => setCancelled(o, false)} style={{ marginRight: 6 }}>
+                          Undo cancel
+                        </button>
+                      ) : (
+                        <button className="btn btn-sm" onClick={() => setCancelOrder(o)} style={{ marginRight: 6 }}>
+                          Cancel
+                        </button>
+                      )}
                       <button className="btn btn-sm btn-danger" onClick={() => remove(o)} title="Delete order">
                         Delete
                       </button>
@@ -319,6 +354,14 @@ function OrdersView() {
       )}
 
       {detailsOrder && <OrderDetails order={detailsOrder} onClose={() => setDetailsId(null)} />}
+
+      {cancelOrder && (
+        <CancelModal
+          order={cancelOrder}
+          onClose={() => setCancelOrder(null)}
+          onSubmit={({ cancelReason }) => setCancelled(cancelOrder, true, cancelReason)}
+        />
+      )}
 
       {modal && (
         <ReturnModal

@@ -17,8 +17,15 @@ export async function GET(req) {
   const ifRet = (expr, cond = isRet) => ({ $cond: [cond, expr, 0] });
   const retType = (t) => ({ $and: [isRet, { $eq: ['$items.returnType', t] }] });
 
+  // Cancelled orders: no sale, no cost, no charge — only counted
+  const cancelledRows = await Order.aggregate([
+    { $match: { ...match, status: 'cancelled' } },
+    { $group: { _id: { y: { $year: '$orderDate' }, m: { $month: '$orderDate' } }, n: { $sum: 1 } } },
+  ]);
+  const cancelledBy = Object.fromEntries(cancelledRows.map((c) => [`${c._id.y}-${c._id.m}`, c.n]));
+
   const rows = await Order.aggregate([
-    { $match: match },
+    { $match: { ...match, status: { $ne: 'cancelled' } } },
     { $unwind: '$items' },
     { $lookup: { from: 'products', localField: 'items.sku', foreignField: 'sku', as: 'p' } },
     { $addFields: { unitCost: { $arrayElemAt: ['$p.purchasePrice', 0] } } },
@@ -68,10 +75,22 @@ export async function GET(req) {
 
   const months = rows.map((r) => {
     const netSales = r.sales - r.returnedSales;
-    return { ...r, netSales, profit: netSales - r.productCost - r.returnCharges - r.lostValue };
+    const cancelled = cancelledBy[`${r.year}-${r.month}`] || 0;
+    delete cancelledBy[`${r.year}-${r.month}`];
+    return { ...r, cancelled, netSales, profit: netSales - r.productCost - r.returnCharges - r.lostValue };
   });
+  // Months that only have cancelled orders
+  for (const [key, n] of Object.entries(cancelledBy)) {
+    const [y, m] = key.split('-').map(Number);
+    months.push({
+      year: y, month: m, orders: 0, returnedOrders: 0, items: 0, sales: 0, returnedSales: 0, netSales: 0,
+      rto: 0, customerReturns: 0, wrongProducts: 0, returnCharges: 0, lostValue: 0, productCost: 0,
+      missingCost: 0, profit: 0, cancelled: n,
+    });
+  }
+  months.sort((a, b) => b.year - a.year || b.month - a.month);
 
-  const keys = ['orders', 'returnedOrders', 'items', 'sales', 'returnedSales', 'netSales', 'rto', 'customerReturns',
+  const keys = ['orders', 'cancelled', 'returnedOrders', 'items', 'sales', 'returnedSales', 'netSales', 'rto', 'customerReturns',
     'wrongProducts', 'returnCharges', 'lostValue', 'productCost', 'missingCost', 'profit'];
   const totals = Object.fromEntries(keys.map((k) => [k, months.reduce((s, m) => s + (m[k] || 0), 0)]));
 

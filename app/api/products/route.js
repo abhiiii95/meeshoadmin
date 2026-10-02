@@ -8,6 +8,7 @@ export async function GET(req) {
   const q = (req.nextUrl.searchParams.get('q') || '').trim();
 
   const pipeline = [
+    { $match: { status: { $ne: 'cancelled' } } },
     { $unwind: '$items' },
     {
       $group: {

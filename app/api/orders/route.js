@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { dbConnect } from '@/lib/db';
 import { buildOrderFilter } from '@/lib/orderFilter';
+import { IS_CANCELLED, IS_RETURNED, NOT_CANCELLED, countIf, sumIf } from '@/lib/agg';
 import Order from '@/models/Order';
 import Product from '@/models/Product';
 
@@ -28,12 +29,13 @@ export async function GET(req) {
       {
         $group: {
           _id: null,
-          orders: { $sum: 1 },
-          returnedOrders: { $sum: { $cond: [{ $eq: ['$status', 'active'] }, 0, 1] } },
+          orders: countIf(NOT_CANCELLED),
+          cancelledOrders: countIf(IS_CANCELLED),
+          returnedOrders: countIf(IS_RETURNED),
           returnedItems: {
             $sum: { $size: { $filter: { input: '$items', cond: '$$this.returned' } } },
           },
-          amount: { $sum: '$totalAmount' },
+          amount: sumIf(NOT_CANCELLED, '$totalAmount'),
           returnedAmount: { $sum: '$returnedAmount' },
           customers: { $addToSet: '$customerKey' },
         },
@@ -49,8 +51,9 @@ export async function GET(req) {
     {
       $group: {
         _id: '$customerKey',
-        orders: { $sum: 1 },
-        returns: { $sum: { $cond: [{ $eq: ['$status', 'active'] }, 0, 1] } },
+        orders: countIf(NOT_CANCELLED),
+        returns: countIf(IS_RETURNED),
+        cancelled: countIf(IS_CANCELLED),
       },
     },
   ]);
@@ -66,7 +69,7 @@ export async function GET(req) {
     total,
     page,
     pages: Math.max(1, Math.ceil(total / limit)),
-    summary: summary || { orders: 0, returnedOrders: 0, returnedItems: 0, amount: 0, returnedAmount: 0, customers: 0 },
+    summary: summary || { orders: 0, cancelledOrders: 0, returnedOrders: 0, returnedItems: 0, amount: 0, returnedAmount: 0, customers: 0 },
     customerStats,
     images,
     prices,

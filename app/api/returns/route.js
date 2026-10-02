@@ -19,6 +19,10 @@ export async function POST(req) {
       results.push({ code, found: false });
       continue;
     }
+    if (order.cancelled) {
+      results.push({ code, found: false, reason: 'cancelled' });
+      continue;
+    }
     const targets = order.items.filter((i) => i.subOrderNo === code);
     for (const item of targets.length ? targets : order.items) {
       applyReturn(item, { returned: true, returnType, returnReason, returnCharge });

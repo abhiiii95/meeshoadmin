@@ -33,6 +33,13 @@ export default function OrderDetails({ order: o, onClose }) {
           </div>
         </div>
 
+        {o.cancelled && (
+          <div className="alert alert-error" style={{ margin: 0 }}>
+            Cancelled on {fmtDate(o.cancelledAt)}
+            {o.cancelReason && ` · ${o.cancelReason}`}. Not counted in sales or profit.
+          </div>
+        )}
+
         <section>
           <h4>Shipping label</h4>
           <div className="fields">

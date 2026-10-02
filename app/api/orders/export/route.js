@@ -20,7 +20,8 @@ export async function GET(req) {
     'Return Code', 'Sort Codes', 'SKU', 'Description', 'Size', 'Color', 'Qty', 'Gross', 'Discount',
     'Total', 'Other Charges', 'Order Total', 'Invoice Date', 'Sold By', 'Seller Address',
     'Enrolment No', 'Place of Supply', 'Return To', 'Returned', 'Return Type', 'Return Reason',
-    'Returned On', 'Return Charge', 'Wrong Product', 'Product Lost Value',
+    'Returned On', 'Return Charge', 'Wrong Product', 'Product Lost Value', 'Cancelled',
+    'Cancel Reason',
   ];
   const rows = [header];
   for (const o of orders) {
@@ -33,6 +34,7 @@ export async function GET(req) {
         o.otherCharges, o.totalAmount, day(o.invoiceDate), o.soldBy, o.sellerAddress, o.enrolmentNo,
         o.placeOfSupply, o.returnTo, i.returned ? 'Yes' : 'No', i.returnType, i.returnReason,
         day(i.returnedAt), i.returnCharge || 0, i.wrongProduct ? 'Yes' : 'No', i.lostValue || 0,
+        o.cancelled ? 'Yes' : 'No', o.cancelReason,
       ]);
     }
   }

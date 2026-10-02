@@ -2,6 +2,7 @@ const MAP = {
   active: ['badge-green', 'Not returned'],
   partial: ['badge-amber', 'Partly returned'],
   returned: ['badge-red', 'Returned'],
+  cancelled: ['badge-grey', 'Cancelled'],
 };
 
 export default function StatusBadge({ status }) {

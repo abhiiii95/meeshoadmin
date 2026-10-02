@@ -65,8 +65,18 @@ const OrderSchema = new mongoose.Schema(
     totalAmount: { type: Number, default: 0 },
     invoiceNote: String,
     returnedAmount: { type: Number, default: 0 },
-    // active = nothing returned, partial = some items returned, returned = all items returned
-    status: { type: String, enum: ['active', 'partial', 'returned'], default: 'active', index: true },
+    // Order cancelled before delivery (label may already be printed): no sale, no charge
+    cancelled: { type: Boolean, default: false },
+    cancelReason: { type: String, default: '' },
+    cancelledAt: Date,
+    // active = nothing returned, partial = some items returned, returned = all items returned,
+    // cancelled = cancelled before delivery
+    status: {
+      type: String,
+      enum: ['active', 'partial', 'returned', 'cancelled'],
+      default: 'active',
+      index: true,
+    },
     upload: { type: mongoose.Schema.Types.ObjectId, ref: 'Upload' },
     pdfUrl: String,
     page: Number,
@@ -76,9 +86,14 @@ const OrderSchema = new mongoose.Schema(
 );
 
 OrderSchema.methods.refreshStatus = function () {
-  const returned = this.items.filter((i) => i.returned);
-  this.status =
-    returned.length === 0 ? 'active' : returned.length === this.items.length ? 'returned' : 'partial';
+  const returned = this.cancelled ? [] : this.items.filter((i) => i.returned);
+  this.status = this.cancelled
+    ? 'cancelled'
+    : returned.length === 0
+      ? 'active'
+      : returned.length === this.items.length
+        ? 'returned'
+        : 'partial';
   this.returnedAmount = returned.reduce((s, i) => s + (i.total || 0), 0);
 };
 

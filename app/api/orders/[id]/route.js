@@ -19,6 +19,22 @@ export async function PATCH(req, { params }) {
   if (!order) return NextResponse.json({ error: 'Order not found' }, { status: 404 });
 
   const { subOrderNo, ...data } = await req.json();
+
+  // Cancel / un-cancel the whole order. Body: { cancelled, cancelReason? }
+  if ('cancelled' in data) {
+    order.cancelled = Boolean(data.cancelled);
+    order.cancelReason = order.cancelled ? data.cancelReason || '' : '';
+    order.cancelledAt = order.cancelled ? new Date() : undefined;
+    // A cancelled order was never delivered, so it can't also be a return
+    if (order.cancelled) for (const item of order.items) applyReturn(item, { returned: false });
+    order.refreshStatus();
+    await order.save();
+    return NextResponse.json({ order });
+  }
+  if (order.cancelled) {
+    return NextResponse.json({ error: 'This order is cancelled. Undo the cancel first.' }, { status: 400 });
+  }
+
   const targets = subOrderNo ? order.items.filter((i) => i.subOrderNo === subOrderNo) : order.items;
   if (!targets.length) return NextResponse.json({ error: 'Item not found' }, { status: 404 });
   if (data.returned && data.wrongProduct && !(Number(data.lostValue) > 0)) {

@@ -131,7 +131,10 @@ function CustomersView() {
                     {[c.city, c.state].filter(Boolean).join(', ')}
                     <div className="mono muted">{c.pincode}</div>
                   </td>
-                  <td className="num half" data-label="Times shopped"><strong>{c.orders}</strong></td>
+                  <td className="num half" data-label="Times shopped">
+                    <strong>{c.orders}</strong>
+                    {c.cancelledOrders > 0 && <div className="muted small">{c.cancelledOrders} cancelled</div>}
+                  </td>
                   <td className="num half" data-label="Items">{c.items}</td>
                   <td className="num half" data-label="Times returned">
                     <strong style={{ color: c.returnedOrders ? 'var(--red)' : undefined }}>{c.returnedOrders}</strong>

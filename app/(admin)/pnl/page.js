@@ -61,7 +61,10 @@ export default function PnlPage() {
             <div className="card stat">
               <div className="label">Orders</div>
               <div className="value">{t.orders}</div>
-              <div className="sub">{t.items} pcs · {pct(t.orders ? t.returnedOrders / t.orders : 0)} returned</div>
+              <div className="sub">
+                {t.items} pcs · {pct(t.orders ? t.returnedOrders / t.orders : 0)} returned
+                {t.cancelled > 0 && ` · ${t.cancelled} cancelled`}
+              </div>
             </div>
             <div className="card stat">
               <div className="label">Returns</div>
@@ -120,7 +123,9 @@ export default function PnlPage() {
                       <Link href={`/orders?from=${m.year}-${String(m.month).padStart(2, '0')}-01&to=${m.year}-${String(m.month).padStart(2, '0')}-${new Date(Date.UTC(m.year, m.month, 0)).getUTCDate()}`}>
                         {m.orders}
                       </Link>
-                      <div className="muted small">{m.items} pcs</div>
+                      <div className="muted small">
+                        {m.items} pcs{m.cancelled > 0 && ` · ${m.cancelled} cancelled`}
+                      </div>
                     </td>
                     <td className="num half" data-label="Returns">
                       <strong style={{ color: returns(m) ? 'var(--red)' : undefined }}>{returns(m)}</strong>
@@ -156,7 +161,8 @@ export default function PnlPage() {
           <p className="muted small" style={{ marginTop: 12 }}>
             Profit = Net sales (invoice value of orders not returned) − product cost of those items − Meesho return
             charges (₹157 per customer return, ₹0 for RTO) − purchase value of products lost when a wrong product came
-            back. Returns are counted in the month the order was placed.
+            back. Returns are counted in the month the order was placed. Cancelled orders are not counted in sales or
+            profit.
           </p>
         </>
       )}

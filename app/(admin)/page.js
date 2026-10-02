@@ -31,7 +31,12 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid stats">
-        <Stat href="/orders" label="Orders" value={totals.orders} sub={`${totals.items} items`} />
+        <Stat
+          href="/orders"
+          label="Orders"
+          value={totals.orders}
+          sub={`${totals.items} items${totals.cancelled ? ` · ${totals.cancelled} cancelled` : ''}`}
+        />
         <Stat href="/pnl" label="Revenue" value={inr(totals.revenue)} sub={`${inr(totals.returnedAmount)} returned`} />
         <Stat
           href="/orders?status=anyReturn"

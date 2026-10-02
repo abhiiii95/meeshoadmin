@@ -106,9 +106,14 @@ export default function ReturnsPage() {
             <div className="alert alert-ok" style={{ marginBottom: 6 }}>
               {results.filter((r) => r.found).length} marked as returned
             </div>
-            {results.some((r) => !r.found) && (
+            {results.some((r) => !r.found && !r.reason) && (
               <div className="alert alert-error">
-                Not found (left in the box): {results.filter((r) => !r.found).map((r) => r.code).join(', ')}
+                Not found (left in the box): {results.filter((r) => !r.found && !r.reason).map((r) => r.code).join(', ')}
+              </div>
+            )}
+            {results.some((r) => r.reason === 'cancelled') && (
+              <div className="alert alert-error">
+                Skipped, order is cancelled: {results.filter((r) => r.reason === 'cancelled').map((r) => r.code).join(', ')}
               </div>
             )}
           </div>
