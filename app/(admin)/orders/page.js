@@ -9,7 +9,15 @@ import ReturnModal from '@/components/ReturnModal';
 import StatusBadge from '@/components/StatusBadge';
 import { fmtDate, inr } from '@/lib/format';
 
-const FILTER_KEYS = ['q', 'status', 'payment', 'courier', 'from', 'to', 'customerKey', 'sku', 'sort'];
+const FILTER_KEYS = ['tab', 'q', 'status', 'payment', 'courier', 'from', 'to', 'customerKey', 'sku', 'sort'];
+
+const TAB_LIST = [
+  { key: '', label: 'All', count: 'all', cls: '' },
+  { key: 'delivered', label: 'Delivered', count: 'delivered', cls: 'tab-green' },
+  { key: 'customerReturn', label: 'Customer Return', count: 'customerReturn', cls: 'tab-red' },
+  { key: 'rto', label: 'RTO', count: 'rto', cls: 'tab-amber' },
+  { key: 'cancelled', label: 'Cancelled', count: 'cancelled', cls: 'tab-grey' },
+];
 
 export default function OrdersPage() {
   return (
@@ -106,6 +114,22 @@ function OrdersView() {
         </a>
       </div>
 
+      <div className="tabs" role="tablist">
+        {TAB_LIST.map((t) => (
+          <button
+            key={t.key || 'all'}
+            type="button"
+            role="tab"
+            aria-selected={filters.tab === t.key}
+            className={`tab ${t.cls}${filters.tab === t.key ? ' on' : ''}`}
+            onClick={() => apply({ tab: t.key, status: '' })}
+          >
+            {t.label}
+            <span className="tab-count">{data?.tabs?.[t.count] ?? '·'}</span>
+          </button>
+        ))}
+      </div>
+
       <form
         className="filters"
         onSubmit={(e) => {
@@ -120,14 +144,6 @@ function OrdersView() {
           onChange={(e) => setSearch(e.target.value)}
         />
         <button className="btn btn-primary">Search</button>
-        <select value={filters.status} onChange={(e) => apply({ status: e.target.value })}>
-          <option value="">All status</option>
-          <option value="active">Not returned</option>
-          <option value="anyReturn">Any return</option>
-          <option value="partial">Partly returned</option>
-          <option value="returned">Fully returned</option>
-          <option value="cancelled">Cancelled</option>
-        </select>
         <select value={filters.payment} onChange={(e) => apply({ payment: e.target.value })}>
           <option value="">All payments</option>
           <option value="Prepaid">Prepaid</option>
@@ -167,7 +183,7 @@ function OrdersView() {
 
       {data?.error && <div className="alert alert-error">Could not load orders.</div>}
 
-      {data?.summary && (filters.q || filters.customerKey || filters.sku || filters.status || filters.payment || filters.courier || filters.from || filters.to) && (
+      {data?.summary && (filters.q || filters.tab || filters.customerKey || filters.sku || filters.status || filters.payment || filters.courier || filters.from || filters.to) && (
         <div className="grid summary">
           <div className="card stat">
             <div className="label">Orders</div>

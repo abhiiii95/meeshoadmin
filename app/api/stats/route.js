@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { dbConnect } from '@/lib/db';
-import { IS_CANCELLED, IS_RETURNED, NOT_CANCELLED, countIf, sumIf } from '@/lib/agg';
+import { EMPTY_TABS, IS_CANCELLED, IS_RETURNED, NOT_CANCELLED, TAB_GROUP, countIf, sumIf } from '@/lib/agg';
 import Order from '@/models/Order';
 import Upload from '@/models/Upload';
 
@@ -57,11 +57,14 @@ export async function GET() {
     { $limit: 5 },
   ]);
 
+  const [tabs] = await Order.aggregate([{ $group: { _id: null, ...TAB_GROUP } }]);
+
   const recentUploads = await Upload.find().sort({ createdAt: -1 }).limit(5).lean();
 
   return NextResponse.json({
     totals: totals || { orders: 0, cancelled: 0, returnedOrders: 0, items: 0, revenue: 0, returnedAmount: 0, cod: 0 },
     customers: customerTotals || { customers: 0, repeat: 0 },
+    tabs: tabs || EMPTY_TABS,
     topReturners,
     topReturnedSkus,
     recentUploads,

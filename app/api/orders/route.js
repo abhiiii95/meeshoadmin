@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { dbConnect } from '@/lib/db';
 import { buildOrderFilter } from '@/lib/orderFilter';
-import { IS_CANCELLED, IS_RETURNED, NOT_CANCELLED, countIf, sumIf } from '@/lib/agg';
+import { EMPTY_TABS, IS_CANCELLED, IS_RETURNED, NOT_CANCELLED, TAB_GROUP, countIf, sumIf } from '@/lib/agg';
 import Order from '@/models/Order';
 import Product from '@/models/Product';
 
@@ -19,7 +19,7 @@ export async function GET(req) {
   const limit = Math.min(200, Math.max(1, parseInt(sp.get('limit') || '25', 10)));
   const sort = SORTS[sp.get('sort')] || SORTS.newest;
 
-  const [orders, total, couriers, [summary]] = await Promise.all([
+  const [orders, total, couriers, [summary], [tabs]] = await Promise.all([
     Order.find(filter).sort(sort).skip((page - 1) * limit).limit(limit).lean(),
     Order.countDocuments(filter),
     Order.distinct('courier'),
@@ -41,6 +41,11 @@ export async function GET(req) {
         },
       },
       { $addFields: { customers: { $size: '$customers' } } },
+    ]),
+    // Per-tab counts for the current search/filters (ignoring the selected tab)
+    Order.aggregate([
+      { $match: buildOrderFilter(sp, { withTab: false }) },
+      { $group: { _id: null, ...TAB_GROUP } },
     ]),
   ]);
 
@@ -70,6 +75,7 @@ export async function GET(req) {
     page,
     pages: Math.max(1, Math.ceil(total / limit)),
     summary: summary || { orders: 0, cancelledOrders: 0, returnedOrders: 0, returnedItems: 0, amount: 0, returnedAmount: 0, customers: 0 },
+    tabs: tabs || EMPTY_TABS,
     customerStats,
     images,
     prices,

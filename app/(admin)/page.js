@@ -18,7 +18,7 @@ export default function DashboardPage() {
   if (error) return <div className="alert alert-error">{error}</div>;
   if (!data) return <p className="muted">Loading…</p>;
 
-  const { totals, customers, topReturners, topReturnedSkus, recentUploads } = data;
+  const { totals, customers, tabs, topReturners, topReturnedSkus, recentUploads } = data;
   const returnRate = totals.orders ? totals.returnedOrders / totals.orders : 0;
 
   return (
@@ -28,6 +28,37 @@ export default function DashboardPage() {
         <Link href="/upload" className="btn btn-primary">
           Upload label PDF
         </Link>
+      </div>
+
+      <div className="grid status-cards">
+        <StatusCard
+          href="/orders?tab=delivered"
+          cls="tab-green"
+          label="Delivered"
+          value={tabs.delivered}
+          sub={inr(tabs.deliveredAmount)}
+        />
+        <StatusCard
+          href="/orders?tab=customerReturn"
+          cls="tab-red"
+          label="Customer Return"
+          value={tabs.customerReturn}
+          sub={`Meesho charge ${inr(tabs.customerReturnCharges)}`}
+        />
+        <StatusCard
+          href="/orders?tab=rto"
+          cls="tab-amber"
+          label="RTO"
+          value={tabs.rto}
+          sub={`${inr(tabs.rtoAmount)} · no charge`}
+        />
+        <StatusCard
+          href="/orders?tab=cancelled"
+          cls="tab-grey"
+          label="Cancelled"
+          value={tabs.cancelled}
+          sub={inr(tabs.cancelledAmount)}
+        />
       </div>
 
       <div className="grid stats">
@@ -125,6 +156,16 @@ export default function DashboardPage() {
         </div>
       </div>
     </>
+  );
+}
+
+function StatusCard({ href, cls, label, value, sub }) {
+  return (
+    <Link href={href} className={`card stat status-card ${cls}`}>
+      <div className="label">{label}</div>
+      <div className="value">{value}</div>
+      <div className="sub">{sub}</div>
+    </Link>
   );
 }
 
