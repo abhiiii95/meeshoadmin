@@ -1,12 +1,14 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { RETURN_TYPES } from '@/components/ReturnModal';
+import Link from 'next/link';
+import { RETURN_TYPES, defaultReturnCharge } from '@/lib/constants';
 import { fmtDate, inr } from '@/lib/format';
 
 export default function ReturnsPage() {
   const [codes, setCodes] = useState('');
   const [returnType, setReturnType] = useState(RETURN_TYPES[0]);
+  const [returnCharge, setReturnCharge] = useState(String(defaultReturnCharge(RETURN_TYPES[0])));
   const [returnReason, setReturnReason] = useState('');
   const [busy, setBusy] = useState(false);
   const [results, setResults] = useState(null);
@@ -30,7 +32,7 @@ export default function ReturnsPage() {
     const res = await fetch('/api/returns', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ codes: list, returnType, returnReason }),
+      body: JSON.stringify({ codes: list, returnType, returnReason, returnCharge: Number(returnCharge) || 0 }),
     });
     const data = await res.json().catch(() => ({ results: [] }));
     setBusy(false);
@@ -52,7 +54,12 @@ export default function ReturnsPage() {
         <h2 style={{ margin: 0 }}>Mark returns in bulk</h2>
         <p className="muted small" style={{ margin: 0 }}>
           Paste or scan AWB numbers, order numbers or sub order numbers (one per line). AWB / order number marks
-          the whole order; a sub order number (e.g. 335290471204175040_1) marks only that item.
+          the whole order; a sub order number (e.g. 335290471204175040_1) marks only that item. Charge is per
+          item: ₹157 for customer return, ₹0 for RTO.
+        </p>
+        <p className="small" style={{ margin: 0 }}>
+          Wrong product came back? Mark that one from the <Link href="/orders">Orders</Link> page so you can enter
+          its purchase value.
         </p>
         <textarea
           rows={6}
@@ -62,11 +69,28 @@ export default function ReturnsPage() {
           className="mono"
         />
         <div className="filters" style={{ margin: 0 }}>
-          <select value={returnType} onChange={(e) => setReturnType(e.target.value)}>
+          <select
+            value={returnType}
+            onChange={(e) => {
+              setReturnType(e.target.value);
+              setReturnCharge(String(defaultReturnCharge(e.target.value)));
+            }}
+          >
             {RETURN_TYPES.map((t) => (
               <option key={t}>{t}</option>
             ))}
           </select>
+          <input
+            type="number"
+            inputMode="decimal"
+            min="0"
+            step="0.01"
+            value={returnCharge}
+            onChange={(e) => setReturnCharge(e.target.value)}
+            title="Meesho return charge per item"
+            placeholder="Charge ₹"
+            style={{ width: 110 }}
+          />
           <input
             placeholder="Reason (optional)"
             value={returnReason}
@@ -103,6 +127,8 @@ export default function ReturnsPage() {
               <th>Item</th>
               <th>Reason</th>
               <th className="num">Amount</th>
+              <th className="num">Charge</th>
+              <th className="num">Product lost</th>
             </tr>
           </thead>
           <tbody>
@@ -111,6 +137,7 @@ export default function ReturnsPage() {
                 <td className="nowrap half" data-label="Returned on">{fmtDate(i.returnedAt)}</td>
                 <td className="half" data-label="Type">
                   <span className="badge badge-red">{i.returnType || 'Returned'}</span>
+                  {i.wrongProduct && <span className="badge badge-red" style={{ marginLeft: 4 }}>Wrong product</span>}
                 </td>
                 <td data-label="Customer">
                   <strong>{o.customer?.name}</strong>
@@ -126,11 +153,17 @@ export default function ReturnsPage() {
                 </td>
                 <td className="small half" data-label="Reason">{i.returnReason || <span className="muted">—</span>}</td>
                 <td className="num half" data-label="Amount">{inr(i.total)}</td>
+                <td className="num half" data-label="Charge" style={{ color: i.returnCharge ? 'var(--red)' : undefined }}>
+                  {inr(i.returnCharge)}
+                </td>
+                <td className="num half" data-label="Product lost" style={{ color: i.lostValue ? 'var(--red)' : undefined }}>
+                  {i.wrongProduct ? inr(i.lostValue) : <span className="muted">—</span>}
+                </td>
               </tr>
             ))}
             {!rows.length && (
               <tr>
-                <td colSpan={7} className="empty">No returns yet</td>
+                <td colSpan={9} className="empty">No returns yet</td>
               </tr>
             )}
           </tbody>

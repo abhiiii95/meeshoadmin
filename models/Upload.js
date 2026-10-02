@@ -9,7 +9,8 @@ const UploadSchema = new mongoose.Schema(
     inserted: Number,
     updated: Number,
     duplicates: Number, // older uploads
-    failed: [{ page: Number, reason: String }],
+    labels: Number,
+    failed: [{ page: String, reason: String }],
   },
   { timestamps: true }
 );

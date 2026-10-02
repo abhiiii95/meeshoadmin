@@ -6,6 +6,7 @@ const ProductSchema = new mongoose.Schema(
     sku: { type: String, required: true, unique: true },
     imageUrl: String,
     imagePublicId: String,
+    purchasePrice: Number, // our cost per piece, used for profit
   },
   { timestamps: true }
 );

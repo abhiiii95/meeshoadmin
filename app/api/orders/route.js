@@ -59,6 +59,7 @@ export async function GET(req) {
   const skus = [...new Set(orders.flatMap((o) => o.items.map((i) => i.sku)).filter(Boolean))];
   const products = await Product.find({ sku: { $in: skus } }).lean();
   const images = Object.fromEntries(products.map((p) => [p.sku, p.imageUrl]));
+  const prices = Object.fromEntries(products.map((p) => [p.sku, p.purchasePrice]));
 
   return NextResponse.json({
     orders,
@@ -68,6 +69,7 @@ export async function GET(req) {
     summary: summary || { orders: 0, returnedOrders: 0, returnedItems: 0, amount: 0, returnedAmount: 0, customers: 0 },
     customerStats,
     images,
+    prices,
     couriers: couriers.filter(Boolean).sort(),
   });
 }

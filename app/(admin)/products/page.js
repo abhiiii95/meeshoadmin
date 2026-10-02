@@ -4,6 +4,48 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { fmtDate, inr, pct } from '@/lib/format';
 
+// Saves on blur / Enter
+function PriceInput({ sku, value }) {
+  const initial = value ?? '';
+  const [v, setV] = useState(String(initial));
+  const [state, setState] = useState(''); // '', 'saving', 'saved', 'error'
+
+  async function save() {
+    if (v === String(initial) && state !== 'error') return;
+    setState('saving');
+    const res = await fetch('/api/products/price', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sku, purchasePrice: v.trim() }),
+    });
+    setState(res.ok ? 'saved' : 'error');
+  }
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      <span className="muted">₹</span>
+      <input
+        type="number"
+        inputMode="decimal"
+        min="0"
+        step="0.01"
+        value={v}
+        placeholder="Not set"
+        onChange={(e) => {
+          setV(e.target.value);
+          setState('');
+        }}
+        onBlur={save}
+        onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+        style={{ width: 100 }}
+      />
+      <span className="small" style={{ color: state === 'error' ? 'var(--red)' : 'var(--green)' }}>
+        {state === 'saving' ? '…' : state === 'saved' ? '✓' : state === 'error' ? 'Error' : ''}
+      </span>
+    </div>
+  );
+}
+
 export default function ProductsPage() {
   const [q, setQ] = useState('');
   const [products, setProducts] = useState(null);
@@ -60,6 +102,9 @@ export default function ProductsPage() {
         <button className="btn btn-primary">Search</button>
       </form>
 
+      <p className="muted small" style={{ marginTop: -4 }}>
+        Enter the purchase price of each SKU. Profit &amp; Loss uses it to work out your profit.
+      </p>
       {error && <div className="alert alert-error">{error}</div>}
       <input ref={fileRef} type="file" accept="image/*" hidden onChange={onFile} />
 
@@ -74,6 +119,7 @@ export default function ProductsPage() {
               <th className="num">Qty returned</th>
               <th className="num">Return rate</th>
               <th className="num">Revenue</th>
+              <th>Purchase price / pc</th>
               <th>Last order</th>
               <th></th>
             </tr>
@@ -81,11 +127,11 @@ export default function ProductsPage() {
           <tbody>
             {!products ? (
               <tr>
-                <td colSpan={9} className="empty">Loading…</td>
+                <td colSpan={10} className="empty">Loading…</td>
               </tr>
             ) : !products.length ? (
               <tr>
-                <td colSpan={9} className="empty">No products yet</td>
+                <td colSpan={10} className="empty">No products yet</td>
               </tr>
             ) : (
               products.map((p) => {
@@ -121,6 +167,9 @@ export default function ProductsPage() {
                       </span>
                     </td>
                     <td className="num half" data-label="Revenue">{inr(p.revenue)}</td>
+                    <td className="half" data-label="Purchase price / pc">
+                      <PriceInput sku={p._id} value={p.purchasePrice} />
+                    </td>
                     <td className="nowrap half" data-label="Last order">{fmtDate(p.lastOrder)}</td>
                     <td className="row-actions">
                       <Link className="btn btn-sm" href={`/orders?sku=${encodeURIComponent(p._id)}`}>

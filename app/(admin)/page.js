@@ -31,16 +31,33 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid stats">
-        <Stat label="Orders" value={totals.orders} sub={`${totals.items} items`} />
-        <Stat label="Revenue" value={inr(totals.revenue)} sub={`${inr(totals.returnedAmount)} returned`} />
-        <Stat label="Returned orders" value={totals.returnedOrders} sub={`${pct(returnRate)} return rate`} />
-        <Stat label="Customers" value={customers.customers} sub={`${customers.repeat} ordered more than once`} />
-        <Stat label="COD / Prepaid" value={`${totals.cod} / ${totals.orders - totals.cod}`} />
+        <Stat href="/orders" label="Orders" value={totals.orders} sub={`${totals.items} items`} />
+        <Stat href="/pnl" label="Revenue" value={inr(totals.revenue)} sub={`${inr(totals.returnedAmount)} returned`} />
+        <Stat
+          href="/orders?status=anyReturn"
+          label="Returned orders"
+          value={totals.returnedOrders}
+          sub={`${pct(returnRate)} return rate`}
+        />
+        <Stat
+          href="/customers"
+          label="Customers"
+          value={customers.customers}
+          sub={`${customers.repeat} ordered more than once`}
+        />
+        <Stat
+          href="/orders?payment=COD"
+          label="COD / Prepaid"
+          value={`${totals.cod} / ${totals.orders - totals.cod}`}
+          sub="tap to see COD orders"
+        />
       </div>
 
       <div className="grid two-col">
         <div className="card">
-          <h2>Customers with most returns</h2>
+          <h2>
+            <Link href="/customers?minReturns=1&sort=returns">Customers with most returns →</Link>
+          </h2>
           {topReturners.length ? (
             <ul className="list">
               {topReturners.map((c) => (
@@ -58,7 +75,9 @@ export default function DashboardPage() {
         </div>
 
         <div className="card">
-          <h2>Most returned SKUs</h2>
+          <h2>
+            <Link href="/products">Most returned SKUs →</Link>
+          </h2>
           {topReturnedSkus.length ? (
             <ul className="list">
               {topReturnedSkus.map((s) => (
@@ -76,7 +95,9 @@ export default function DashboardPage() {
         </div>
 
         <div className="card">
-          <h2>Recent uploads</h2>
+          <h2>
+            <Link href="/upload">Recent uploads →</Link>
+          </h2>
           {recentUploads.length ? (
             <ul className="list">
               {recentUploads.map((u) => (
@@ -102,12 +123,12 @@ export default function DashboardPage() {
   );
 }
 
-function Stat({ label, value, sub }) {
+function Stat({ href, label, value, sub }) {
   return (
-    <div className="card stat">
+    <Link href={href} className="card stat">
       <div className="label">{label}</div>
       <div className="value">{value}</div>
       {sub && <div className="sub">{sub}</div>}
-    </div>
+    </Link>
   );
 }

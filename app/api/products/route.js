@@ -27,7 +27,12 @@ export async function GET(req) {
   }
   pipeline.push(
     { $lookup: { from: 'products', localField: '_id', foreignField: 'sku', as: 'p' } },
-    { $addFields: { imageUrl: { $arrayElemAt: ['$p.imageUrl', 0] } } },
+    {
+      $addFields: {
+        imageUrl: { $arrayElemAt: ['$p.imageUrl', 0] },
+        purchasePrice: { $arrayElemAt: ['$p.purchasePrice', 0] },
+      },
+    },
     { $project: { p: 0 } },
     { $sort: { qty: -1 } }
   );

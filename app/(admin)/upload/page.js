@@ -36,11 +36,22 @@ export default function UploadPage() {
     setError('');
     const form = new FormData();
     files.forEach((f) => form.append('files', f));
-    const res = await fetch('/api/upload', { method: 'POST', body: form });
+    let res;
+    try {
+      res = await fetch('/api/upload', { method: 'POST', body: form });
+    } catch {
+      setBusy(false);
+      setError('Network error: could not reach the server. Check your internet / Wi-Fi and try again.');
+      return;
+    }
     const data = await res.json().catch(() => ({}));
     setBusy(false);
-    if (!res.ok) {
-      setError(data.error || 'Upload failed');
+    if (res.status === 401) {
+      window.location.href = '/login';
+      return;
+    }
+    if (!res.ok || !data.results) {
+      setError(data.error || `Upload failed (server error ${res.status}). Please try again.`);
       return;
     }
     setResults(data.results);
@@ -101,7 +112,7 @@ export default function UploadPage() {
           {results.map((r) => (
             <div key={r.fileName} style={{ marginBottom: 10 }}>
               <div className={`alert ${r.failed.length ? 'alert-error' : 'alert-ok'}`}>
-                <strong>{r.fileName}</strong>: {r.pages} page(s) · {r.inserted} new order(s) saved ·{' '}
+                <strong>{r.fileName}</strong>: {r.pages} page(s) · {r.labels} label(s) found · {r.inserted} new order(s) saved ·{' '}
                 {r.updated} existing order(s) updated
                 {r.failed.length > 0 && ` · ${r.failed.length} failed`}
               </div>

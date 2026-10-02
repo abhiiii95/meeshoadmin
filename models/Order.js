@@ -15,6 +15,11 @@ const ItemSchema = new mongoose.Schema(
     returnType: { type: String, enum: ['RTO', 'Customer Return', ''], default: '' },
     returnReason: { type: String, default: '' },
     returnedAt: Date,
+    // Amount Meesho deducted for this return (157 for customer return, 0 for RTO)
+    returnCharge: { type: Number, default: 0 },
+    // Customer sent back a wrong/different product, so our product is lost
+    wrongProduct: { type: Boolean, default: false },
+    lostValue: { type: Number, default: 0 }, // purchase value of our lost product
   },
   { _id: false }
 );

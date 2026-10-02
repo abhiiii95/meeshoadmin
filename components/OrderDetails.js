@@ -96,6 +96,8 @@ export default function OrderDetails({ order: o, onClose }) {
                         <>
                           <span className="badge badge-red">{i.returnType || 'Returned'}</span>
                           <div className="muted">{fmtDate(i.returnedAt)}</div>
+                          <div>Charge: {inr(i.returnCharge)}</div>
+                          {i.wrongProduct && <div>Wrong product · lost {inr(i.lostValue)}</div>}
                           {i.returnReason && <div>{i.returnReason}</div>}
                         </>
                       ) : (

@@ -1,13 +1,34 @@
 import { NextResponse } from 'next/server';
 import { dbConnect } from '@/lib/db';
 import { extractPages } from '@/lib/pdf';
-import { parsePage } from '@/lib/parser';
+import { parsePage, splitLabels } from '@/lib/parser';
 import { cloudinaryEnabled, uploadBuffer } from '@/lib/cloudinary';
 import Order from '@/models/Order';
 import Upload from '@/models/Upload';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
+
+// New order → insert. Existing order → refresh PDF data but keep return marks.
+async function saveOrder(data, result) {
+  const existing = await Order.findOne({ orderNo: data.orderNo });
+  if (!existing) {
+    await Order.create(data);
+    result.inserted++;
+    return;
+  }
+  const prev = new Map(existing.items.map((i) => [i.subOrderNo, i]));
+  data.items = data.items.map((it) => {
+    const p = prev.get(it.subOrderNo);
+    if (!p) return it;
+    const { returned, returnType, returnReason, returnedAt, returnCharge, wrongProduct, lostValue } = p;
+    return { ...it, returned, returnType, returnReason, returnedAt, returnCharge, wrongProduct, lostValue };
+  });
+  existing.set(data);
+  existing.refreshStatus();
+  await existing.save();
+  result.updated++;
+}
 
 export async function GET() {
   await dbConnect();
@@ -23,7 +44,7 @@ export async function POST(req) {
 
   const results = [];
   for (const file of files) {
-    const result = { fileName: file.name, pages: 0, inserted: 0, updated: 0, failed: [] };
+    const result = { fileName: file.name, pages: 0, labels: 0, inserted: 0, updated: 0, failed: [] };
     try {
       const buffer = Buffer.from(await file.arrayBuffer());
       const pages = await extractPages(buffer);
@@ -49,49 +70,44 @@ export async function POST(req) {
 
       for (let i = 0; i < pages.length; i++) {
         const pageNo = i + 1;
-        let parsed;
-        try {
-          parsed = parsePage(pages[i]);
-        } catch (err) {
-          result.failed.push({ page: pageNo, reason: `Parse error: ${err.message}` });
-          continue;
-        }
-        if (!parsed) continue; // page without a label (e.g. blank)
-        if (!parsed.orderNo) {
-          result.failed.push({ page: pageNo, reason: 'Order number not found' });
-          continue;
-        }
-        try {
-          const data = { ...parsed, upload: upload._id, pdfUrl, page: pageNo };
-          const existing = await Order.findOne({ orderNo: parsed.orderNo });
-          if (existing) {
-            // Re-upload refreshes the PDF data but keeps return marks
-            const prev = new Map(existing.items.map((i) => [i.subOrderNo, i]));
-            data.items = data.items.map((it) => {
-              const p = prev.get(it.subOrderNo);
-              return p
-                ? { ...it, returned: p.returned, returnType: p.returnType, returnReason: p.returnReason, returnedAt: p.returnedAt }
-                : it;
-            });
-            existing.set(data);
-            existing.refreshStatus();
-            await existing.save();
-            result.updated++;
+        const labels = splitLabels(pages[i]);
+        if (!labels.length) {
+          if (pages[i].some((it) => it.str?.trim())) {
+            result.failed.push({ page: pageNo, reason: 'No Meesho label found on this page' });
           } else {
-            await Order.create(data);
-            result.inserted++;
+            result.failed.push({ page: pageNo, reason: 'Page has no text (scanned image / photo PDF?)' });
           }
-        } catch (err) {
-          result.failed.push({ page: pageNo, reason: err.message });
+          continue;
+        }
+        for (let l = 0; l < labels.length; l++) {
+          const where = labels.length > 1 ? `${pageNo} (label ${l + 1})` : String(pageNo);
+          result.labels++;
+          let parsed;
+          try {
+            parsed = parsePage(labels[l]);
+          } catch (err) {
+            result.failed.push({ page: where, reason: `Parse error: ${err.message}` });
+            continue;
+          }
+          if (!parsed?.orderNo) {
+            result.failed.push({ page: where, reason: 'Order number not found' });
+            continue;
+          }
+          try {
+            await saveOrder({ ...parsed, upload: upload._id, pdfUrl, page: pageNo }, result);
+          } catch (err) {
+            result.failed.push({ page: where, reason: err.message });
+          }
         }
       }
 
+      upload.labels = result.labels;
       upload.inserted = result.inserted;
       upload.updated = result.updated;
       upload.failed = result.failed;
       await upload.save();
     } catch (err) {
-      result.failed.push({ page: 0, reason: `Could not read PDF: ${err.message}` });
+      result.failed.push({ page: '-', reason: `Could not read PDF: ${err.message}` });
     }
     results.push(result);
   }

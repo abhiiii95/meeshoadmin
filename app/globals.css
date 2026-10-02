@@ -53,7 +53,18 @@ a:hover { text-decoration: underline; }
 .nav-link:hover { background: rgba(255, 255, 255, 0.08); text-decoration: none; }
 .nav-link.active { background: var(--primary); color: #fff; }
 .sidebar .spacer { flex: 1; }
-.sidebar button { width: 100%; }
+.sidebar .btn-ghost { width: 100%; }
+.brand { display: flex; align-items: center; gap: 6px; }
+.drawer-close {
+  display: none; margin-left: auto; border: 0; background: none; color: #d9d2e6;
+  font-size: 28px; line-height: 1; cursor: pointer; padding: 0 4px;
+}
+.topbar, .drawer-overlay { display: none; }
+
+/* Clickable stat cards */
+a.card.stat { display: block; color: inherit; text-decoration: none; transition: border-color 0.15s, box-shadow 0.15s; }
+a.card.stat:hover { border-color: var(--primary); box-shadow: 0 2px 10px rgba(155, 44, 140, 0.12); }
+a.card.stat .label::after { content: ' →'; color: var(--primary); }
 .main { flex: 1; min-width: 0; padding: 24px 28px 40px; }
 
 .page-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; flex-wrap: wrap; }
@@ -140,6 +151,13 @@ td.num, th.num { text-align: right; white-space: nowrap; }
 .modal h3 { margin: 0; font-size: 16px; }
 .modal label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
 .modal .actions { display: flex; justify-content: flex-end; gap: 8px; }
+.modal .hint { font-size: 12px; color: var(--muted); }
+.modal label.check { flex-direction: row; align-items: flex-start; gap: 8px; color: var(--text); cursor: pointer; }
+.modal label.check input { width: 18px; height: 18px; margin-top: 1px; flex-shrink: 0; }
+.segmented { display: flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.segmented button { flex: 1; border: 0; background: #fff; padding: 9px 8px; cursor: pointer; font: inherit; color: var(--text); }
+.segmented button + button { border-left: 1px solid var(--border); }
+.segmented button.on { background: var(--primary); color: #fff; }
 .modal-lg { max-width: 1000px; max-height: 90vh; overflow-y: auto; gap: 18px; }
 .modal-lg h4 { margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--primary-dark); }
 .fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px 18px; }
@@ -183,16 +201,37 @@ td.num, th.num { text-align: right; white-space: nowrap; }
   input, select, textarea { font-size: 16px; }
 
   .shell { flex-direction: column; }
-  .sidebar {
-    width: 100%; height: auto; position: sticky; top: 0; z-index: 40;
-    flex-direction: row; flex-wrap: nowrap; align-items: center; gap: 4px;
-    padding: 8px 10px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none;
+
+  /* Top bar with menu button */
+  .topbar {
+    display: flex; align-items: center; gap: 10px;
+    position: sticky; top: 0; z-index: 40;
+    background: #1f1530; color: #fff; padding: 8px 12px; min-height: 52px;
   }
-  .sidebar::-webkit-scrollbar { display: none; }
-  .brand { padding: 0 8px 0 2px; font-size: 15px; white-space: nowrap; }
-  .nav-link { padding: 7px 11px; white-space: nowrap; font-size: 14px; }
-  .sidebar .spacer { display: none; }
-  .sidebar button { width: auto; white-space: nowrap; padding: 6px 10px; font-size: 13px; }
+  .menu-btn {
+    border: 0; background: rgba(255, 255, 255, 0.08); color: #fff; border-radius: 8px;
+    width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer;
+  }
+  .topbar-title { font-weight: 600; font-size: 16px; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .topbar-action { background: var(--primary); color: #fff; border-radius: 8px; padding: 8px 12px; font-size: 14px; white-space: nowrap; }
+  .topbar-action:hover { text-decoration: none; }
+
+  /* Offcanvas drawer */
+  .sidebar {
+    position: fixed; top: 0; left: 0; bottom: 0; z-index: 60;
+    width: 270px; max-width: 82vw; height: 100%;
+    padding: 16px 12px calc(16px + env(safe-area-inset-bottom));
+    transform: translateX(-100%); transition: transform 0.25s ease;
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.25); overflow-y: auto;
+  }
+  .sidebar.open { transform: translateX(0); }
+  .drawer-close { display: block; }
+  .nav-link { padding: 12px 14px; font-size: 16px; }
+  .drawer-overlay {
+    display: block; position: fixed; inset: 0; z-index: 55;
+    background: rgba(20, 16, 30, 0.5); opacity: 0; pointer-events: none; transition: opacity 0.25s;
+  }
+  .drawer-overlay.show { opacity: 1; pointer-events: auto; }
 
   .main { padding: 14px 12px 32px; }
   .page-head h1 { font-size: 19px; }

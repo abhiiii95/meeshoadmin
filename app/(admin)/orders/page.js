@@ -54,11 +54,12 @@ function OrdersView() {
   }
 
   async function markReturn(order, item, payload) {
-    await fetch(`/api/orders/${order._id}`, {
+    const res = await fetch(`/api/orders/${order._id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ subOrderNo: item?.subOrderNo, returned: true, ...payload }),
     });
+    if (!res.ok) return (await res.json().catch(() => ({}))).error || 'Could not save';
     setModal(null);
     load();
   }
@@ -249,8 +250,13 @@ function OrdersView() {
                                   {it.returnType || 'Returned'}
                                   {it.returnedAt ? ` · ${fmtDate(it.returnedAt)}` : ''}
                                 </span>
-                                {it.returnReason && <span className="muted small"> {it.returnReason}</span>}{' '}
-                                <button className="btn btn-sm" onClick={() => undoReturn(o, it)}>
+                                {it.wrongProduct && <span className="badge badge-red" style={{ marginLeft: 4 }}>Wrong product</span>}
+                                <div className="small" style={{ color: 'var(--red)', marginTop: 2 }}>
+                                  Charge {inr(it.returnCharge)}
+                                  {it.wrongProduct && ` · Product lost ${inr(it.lostValue)}`}
+                                </div>
+                                {it.returnReason && <div className="muted small">{it.returnReason}</div>}
+                                <button className="btn btn-sm" style={{ marginTop: 4 }} onClick={() => undoReturn(o, it)}>
                                   Undo
                                 </button>
                               </div>
@@ -317,6 +323,9 @@ function OrdersView() {
       {modal && (
         <ReturnModal
           title={`Return ${modal.item.sku} (${modal.item.subOrderNo})`}
+          defaultLostValue={
+            data?.prices?.[modal.item.sku] ? data.prices[modal.item.sku] * (modal.item.qty || 1) : undefined
+          }
           onClose={() => setModal(null)}
           onSubmit={(payload) => markReturn(modal.order, modal.item, payload)}
         />
