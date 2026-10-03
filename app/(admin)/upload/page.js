@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import RiskBadge from '@/components/RiskBadge';
+import RiskModal from '@/components/RiskModal';
 import { fmtDate } from '@/lib/format';
 
 export default function UploadPage() {
@@ -10,6 +12,8 @@ export default function UploadPage() {
   const [over, setOver] = useState(false);
   const [busy, setBusy] = useState(false);
   const [results, setResults] = useState(null);
+  const [alerts, setAlerts] = useState([]);
+  const [openKey, setOpenKey] = useState(null);
   const [error, setError] = useState('');
   const [history, setHistory] = useState([]);
 
@@ -55,6 +59,7 @@ export default function UploadPage() {
       return;
     }
     setResults(data.results);
+    setAlerts(data.alerts || []);
     setFiles([]);
     if (inputRef.current) inputRef.current.value = '';
     loadHistory();
@@ -105,6 +110,47 @@ export default function UploadPage() {
         )}
         {error && <div className="alert alert-error" style={{ marginTop: 12 }}>{error}</div>}
       </div>
+
+      {results && alerts.length > 0 && (
+        <div className="card" style={{ marginBottom: 18, borderColor: 'var(--red)' }}>
+          <h2 style={{ color: 'var(--red)' }}>
+            ⚠ {alerts.length} risky customer{alerts.length > 1 ? 's' : ''} in this upload
+          </h2>
+          <p className="muted small" style={{ marginTop: -6 }}>
+            Check these before packing. Record a packing video for proof, or cancel the order on Meesho if it looks
+            fake.
+          </p>
+          {alerts.map((a) => (
+            <div key={a.orderNo} className={`alert-card ${a.level}`}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+                <span>
+                  <strong>{a.name}</strong>{' '}
+                  <span className="muted small">
+                    · {a.city} {a.pincode} · AWB {a.awb}
+                  </span>
+                </span>
+                <span style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  <RiskBadge risk={a} />
+                  <button className="btn btn-sm" onClick={() => setOpenKey(a.customerKey)}>
+                    Details
+                  </button>
+                </span>
+              </div>
+              <ul>
+                {a.reasons.map((x) => (
+                  <li key={x}>{x}</li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {results && alerts.length === 0 && (
+        <div className="alert alert-ok">✓ No risky customers found in this upload.</div>
+      )}
+
+      {openKey && <RiskModal customerKey={openKey} onClose={() => setOpenKey(null)} />}
 
       {results && (
         <div className="card" style={{ marginBottom: 18 }}>

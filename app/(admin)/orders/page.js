@@ -6,10 +6,12 @@ import Pagination from '@/components/Pagination';
 import CancelModal from '@/components/CancelModal';
 import OrderDetails from '@/components/OrderDetails';
 import ReturnModal from '@/components/ReturnModal';
+import RiskBadge from '@/components/RiskBadge';
+import RiskModal from '@/components/RiskModal';
 import StatusBadge from '@/components/StatusBadge';
 import { fmtDate, inr } from '@/lib/format';
 
-const FILTER_KEYS = ['tab', 'q', 'status', 'payment', 'courier', 'from', 'to', 'customerKey', 'sku', 'sort'];
+const FILTER_KEYS = ['tab', 'q', 'status', 'risk', 'payment', 'courier', 'from', 'to', 'customerKey', 'sku', 'sort'];
 
 const TAB_LIST = [
   { key: '', label: 'All', count: 'all', cls: '' },
@@ -39,6 +41,7 @@ function OrdersView() {
   const [modal, setModal] = useState(null); // { order, item }
   const [detailsId, setDetailsId] = useState(null);
   const [cancelOrder, setCancelOrder] = useState(null);
+  const [riskKey, setRiskKey] = useState(null);
   const detailsOrder = data?.orders?.find((o) => o._id === detailsId);
 
   const load = useCallback(async () => {
@@ -144,6 +147,12 @@ function OrdersView() {
           onChange={(e) => setSearch(e.target.value)}
         />
         <button className="btn btn-primary">Search</button>
+        <select value={filters.risk} onChange={(e) => apply({ risk: e.target.value })}>
+          <option value="">All customers</option>
+          <option value="medium">Medium risk +</option>
+          <option value="high">High risk + fraud</option>
+          <option value="fraud">Fraud only</option>
+        </select>
         <select value={filters.payment} onChange={(e) => apply({ payment: e.target.value })}>
           <option value="">All payments</option>
           <option value="Prepaid">Prepaid</option>
@@ -183,7 +192,7 @@ function OrdersView() {
 
       {data?.error && <div className="alert alert-error">Could not load orders.</div>}
 
-      {data?.summary && (filters.q || filters.tab || filters.customerKey || filters.sku || filters.status || filters.payment || filters.courier || filters.from || filters.to) && (
+      {data?.summary && (filters.q || filters.tab || filters.risk || filters.customerKey || filters.sku || filters.status || filters.payment || filters.courier || filters.from || filters.to) && (
         <div className="grid summary">
           <div className="card stat">
             <div className="label">Orders</div>
@@ -247,7 +256,8 @@ function OrdersView() {
                       )}
                     </td>
                     <td style={{ minWidth: 200 }} data-label="Customer">
-                      <strong>{o.customer?.name}</strong>
+                      <strong>{o.customer?.name}</strong>{' '}
+                      <RiskBadge risk={data.risk?.[o.customerKey]} onClick={() => setRiskKey(o.customerKey)} />
                       <div className="muted small" title={o.customer?.address}>
                         {[o.customer?.city, o.customer?.state, o.customer?.pincode].filter(Boolean).join(', ')}
                       </div>
@@ -370,6 +380,8 @@ function OrdersView() {
       )}
 
       {detailsOrder && <OrderDetails order={detailsOrder} onClose={() => setDetailsId(null)} />}
+
+      {riskKey && <RiskModal customerKey={riskKey} onClose={() => setRiskKey(null)} onChanged={load} />}
 
       {cancelOrder && (
         <CancelModal

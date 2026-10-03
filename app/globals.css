@@ -218,6 +218,34 @@ td.num, th.num { text-align: right; white-space: nowrap; }
 .tab-amber { --tab: var(--amber); }
 .tab-grey { --tab: #5b6070; }
 
+/* Risk */
+.badge.risk { border: 0; }
+.risk-fraud { background: #1d1d1d; color: #fff; }
+.risk-high { background: var(--red-bg); color: var(--red); }
+.risk-medium { background: var(--amber-bg); color: var(--amber); }
+.risk-low { background: var(--green-bg); color: var(--green); }
+.risk-panel { border-radius: var(--radius); padding: 14px; border: 1px solid var(--border); background: #fafbfd; }
+.risk-panel-fraud { background: #fbe9e7; border-color: #1d1d1d; }
+.risk-panel-high { background: var(--red-bg); border-color: #f3b8b2; }
+.risk-panel-medium { background: var(--amber-bg); border-color: #f0d49a; }
+.risk-panel-low { background: var(--green-bg); border-color: #b8e2c9; }
+.reasons { margin: 10px 0 0; padding-left: 18px; }
+.reasons li { margin: 3px 0; }
+.reasons li.ok { list-style: none; margin-left: -18px; color: var(--green); font-weight: 500; }
+.tip { margin-top: 10px; font-size: 13px; background: rgba(255, 255, 255, 0.6); border-radius: 8px; padding: 8px 10px; }
+.risk-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; justify-content: space-between; }
+.btn-danger-solid { background: var(--red); border-color: var(--red); color: #fff; }
+.btn-danger-solid:hover { background: #8f1c13; }
+.link-btn { border: 0; background: none; padding: 0; text-align: left; cursor: pointer; font: inherit; color: var(--text); }
+.link-btn:hover strong, .link-btn:hover { color: var(--primary); }
+.quick-check { margin-bottom: 18px; }
+.alert-card { border-radius: var(--radius); padding: 12px 14px; margin-bottom: 10px; border: 1px solid var(--border); }
+.alert-card.fraud { background: #1d1d1d; color: #fff; }
+.alert-card.fraud .muted { color: #c9c9c9; }
+.alert-card.high { background: var(--red-bg); border-color: #f3b8b2; }
+.alert-card.medium { background: var(--amber-bg); border-color: #f0d49a; }
+.alert-card ul { margin: 6px 0 0; padding-left: 18px; font-size: 13px; }
+
 /* Dashboard status cards */
 .status-cards { grid-template-columns: repeat(4, 1fr); margin-bottom: 18px; }
 a.card.stat.status-card { border-top: 4px solid var(--tab, var(--primary)); }

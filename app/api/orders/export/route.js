@@ -1,5 +1,6 @@
 import { dbConnect } from '@/lib/db';
 import { buildOrderFilter } from '@/lib/orderFilter';
+import { riskKeysFor, withRiskKeys } from '@/lib/risk';
 import Order from '@/models/Order';
 
 const csvCell = (v) => {
@@ -10,7 +11,8 @@ const day = (d) => (d ? new Date(d).toISOString().slice(0, 10) : '');
 
 export async function GET(req) {
   await dbConnect();
-  const orders = await Order.find(buildOrderFilter(req.nextUrl.searchParams))
+  const sp = req.nextUrl.searchParams;
+  const orders = await Order.find(withRiskKeys(buildOrderFilter(sp), await riskKeysFor(sp)))
     .sort({ orderDate: -1 })
     .lean();
 

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { dbConnect } from '@/lib/db';
 import { extractPages } from '@/lib/pdf';
 import { parsePage, splitLabels } from '@/lib/parser';
+import { levelRank, riskForKeys } from '@/lib/risk';
 import { cloudinaryEnabled, uploadBuffer } from '@/lib/cloudinary';
 import Order from '@/models/Order';
 import Upload from '@/models/Upload';
@@ -11,6 +12,7 @@ export const maxDuration = 60;
 
 // New order → insert. Existing order → refresh PDF data but keep return marks.
 async function saveOrder(data, result) {
+  result.saved.push({ orderNo: data.orderNo, awb: data.awb, customerKey: data.customerKey });
   const existing = await Order.findOne({ orderNo: data.orderNo });
   if (!existing) {
     await Order.create(data);
@@ -44,7 +46,7 @@ export async function POST(req) {
 
   const results = [];
   for (const file of files) {
-    const result = { fileName: file.name, pages: 0, labels: 0, inserted: 0, updated: 0, failed: [] };
+    const result = { fileName: file.name, pages: 0, labels: 0, inserted: 0, updated: 0, failed: [], saved: [] };
     try {
       const buffer = Buffer.from(await file.arrayBuffer());
       const pages = await extractPages(buffer);
@@ -112,5 +114,27 @@ export async function POST(req) {
     results.push(result);
   }
 
-  return NextResponse.json({ results });
+  // Warn about risky customers in the labels just uploaded (before packing)
+  const saved = results.flatMap((r) => r.saved);
+  const { risk, groups } = await riskForKeys(saved.map((s) => s.customerKey));
+  const alerts = saved
+    .map((s) => {
+      const r = risk.get(s.customerKey);
+      const g = groups.get(s.customerKey);
+      if (!r || r.level === 'low') return null;
+      return {
+        ...s,
+        name: g?.name,
+        city: g?.city,
+        pincode: g?.pincode,
+        level: r.level,
+        reasons: r.reasons,
+        orders: g?.orders || 0,
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => levelRank(b.level) - levelRank(a.level));
+
+  for (const r of results) delete r.saved;
+  return NextResponse.json({ results, alerts });
 }

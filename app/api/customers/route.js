@@ -1,16 +1,24 @@
 import { NextResponse } from 'next/server';
 import { dbConnect } from '@/lib/db';
 import { escapeRegex } from '@/lib/format';
-import { IS_CANCELLED, IS_RETURNED, NOT_CANCELLED, countIf, sumIf } from '@/lib/agg';
-import Order from '@/models/Order';
+import { LEVELS, allRisk, briefRisk, levelRank } from '@/lib/risk';
+
+const by = (fn, dir = -1) => (a, b) => {
+  const x = fn(a);
+  const y = fn(b);
+  return x < y ? -dir : x > y ? dir : 0;
+};
+const time = (d) => (d ? new Date(d).getTime() : 0);
 
 const SORTS = {
-  orders: { orders: -1, lastOrder: -1 },
-  returns: { returnedOrders: -1, orders: -1 },
-  returnRate: { returnRate: -1, returnedOrders: -1 },
-  spent: { totalSpent: -1 },
-  last: { lastOrder: -1 },
-  name: { name: 1 },
+  orders: (a, b) => b.orders - a.orders || time(b.lastOrder) - time(a.lastOrder),
+  risk: (a, b) =>
+    levelRank(b.risk.level) - levelRank(a.risk.level) || b.risk.score - a.risk.score || b.orders - a.orders,
+  returns: (a, b) => b.returnedOrders - a.returnedOrders || b.orders - a.orders,
+  returnRate: (a, b) => b.returnRate - a.returnRate || b.returnedOrders - a.returnedOrders,
+  spent: (a, b) => b.totalSpent - a.totalSpent,
+  last: (a, b) => time(b.lastOrder) - time(a.lastOrder),
+  name: by((c) => (c.name || '').toLowerCase(), 1),
 };
 
 export async function GET(req) {
@@ -20,59 +28,36 @@ export async function GET(req) {
   const limit = Math.min(200, Math.max(1, parseInt(sp.get('limit') || '25', 10)));
   const minOrders = parseInt(sp.get('minOrders') || '0', 10);
   const minReturns = parseInt(sp.get('minReturns') || '0', 10);
+  const riskLevel = sp.get('risk');
   const q = (sp.get('q') || '').trim();
+  const re = q ? new RegExp(escapeRegex(q), 'i') : null;
 
-  const match = {};
-  if (q) {
-    const re = new RegExp(escapeRegex(q), 'i');
-    match.$or = [{ name: re }, { pincode: re }, { city: re }, { state: re }];
-  }
-  if (minOrders > 0) match.orders = { $gte: minOrders };
-  if (minReturns > 0) match.returnedOrders = { $gte: minReturns };
+  const { groups, risk } = await allRisk();
+  let rows = groups.map((g) => ({
+    ...g,
+    returnRate: g.orders ? g.returnedOrders / g.orders : 0,
+    risk: briefRisk(risk.get(g._id)),
+  }));
 
-  const [result] = await Order.aggregate([
-    {
-      $group: {
-        _id: '$customerKey',
-        name: { $first: '$customer.name' },
-        address: { $first: '$customer.address' },
-        city: { $first: '$customer.city' },
-        state: { $first: '$customer.state' },
-        pincode: { $first: '$customer.pincode' },
-        orders: countIf(NOT_CANCELLED),
-        cancelledOrders: countIf(IS_CANCELLED),
-        returnedOrders: countIf(IS_RETURNED),
-        items: sumIf(NOT_CANCELLED, { $size: '$items' }),
-        returnedItems: {
-          $sum: { $size: { $filter: { input: '$items', cond: '$$this.returned' } } },
-        },
-        codOrders: countIf({ $and: [NOT_CANCELLED, { $eq: ['$paymentType', 'COD'] }] }),
-        totalSpent: sumIf(NOT_CANCELLED, '$totalAmount'),
-        returnedAmount: { $sum: '$returnedAmount' },
-        firstOrder: { $min: '$orderDate' },
-        lastOrder: { $max: '$orderDate' },
-      },
-    },
-    {
-      $addFields: {
-        returnRate: { $cond: [{ $gt: ['$orders', 0] }, { $divide: ['$returnedOrders', '$orders'] }, 0] },
-      },
-    },
-    { $match: match },
-    { $sort: SORTS[sp.get('sort')] || SORTS.orders },
-    {
-      $facet: {
-        rows: [{ $skip: (page - 1) * limit }, { $limit: limit }],
-        total: [{ $count: 'n' }],
-      },
-    },
-  ]);
+  // Counts per risk level (before filtering by risk)
+  const levels = Object.fromEntries(LEVELS.map((l) => [l, 0]));
+  for (const r of rows) levels[r.risk.level]++;
 
-  const total = result.total[0]?.n || 0;
+  rows = rows.filter(
+    (c) =>
+      (!re || [c.name, c.pincode, c.city, c.state].some((v) => re.test(v || ''))) &&
+      (!minOrders || c.orders >= minOrders) &&
+      (!minReturns || c.returnedOrders >= minReturns) &&
+      (!LEVELS.includes(riskLevel) || levelRank(c.risk.level) >= levelRank(riskLevel))
+  );
+  rows.sort(SORTS[sp.get('sort')] || SORTS.orders);
+
+  const total = rows.length;
   return NextResponse.json({
-    customers: result.rows,
+    customers: rows.slice((page - 1) * limit, page * limit),
     total,
     page,
     pages: Math.max(1, Math.ceil(total / limit)),
+    levels,
   });
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import QuickCheck from '@/components/QuickCheck';
 import { fmtDate, inr, pct } from '@/lib/format';
 
 export default function DashboardPage() {
@@ -18,7 +19,7 @@ export default function DashboardPage() {
   if (error) return <div className="alert alert-error">{error}</div>;
   if (!data) return <p className="muted">Loading…</p>;
 
-  const { totals, customers, tabs, topReturners, topReturnedSkus, recentUploads } = data;
+  const { totals, customers, tabs, riskLevels, riskyPincodes, topReturners, topReturnedSkus, recentUploads } = data;
   const returnRate = totals.orders ? totals.returnedOrders / totals.orders : 0;
 
   return (
@@ -29,6 +30,8 @@ export default function DashboardPage() {
           Upload label PDF
         </Link>
       </div>
+
+      <QuickCheck />
 
       <div className="grid status-cards">
         <StatusCard
@@ -82,6 +85,12 @@ export default function DashboardPage() {
           sub={`${customers.repeat} ordered more than once`}
         />
         <Stat
+          href="/customers?risk=high&sort=risk"
+          label="Risky customers"
+          value={riskLevels.fraud + riskLevels.high}
+          sub={`${riskLevels.fraud} fraud · ${riskLevels.high} high · ${riskLevels.medium} medium`}
+        />
+        <Stat
           href="/orders?payment=COD"
           label="COD / Prepaid"
           value={`${totals.cod} / ${totals.orders - totals.cod}`}
@@ -92,7 +101,7 @@ export default function DashboardPage() {
       <div className="grid two-col">
         <div className="card">
           <h2>
-            <Link href="/customers?minReturns=1&sort=returns">Customers with most returns →</Link>
+            <Link href="/customers?risk=medium&sort=risk">Customers with most returns →</Link>
           </h2>
           {topReturners.length ? (
             <ul className="list">
@@ -107,6 +116,28 @@ export default function DashboardPage() {
             </ul>
           ) : (
             <p className="muted">No returns yet.</p>
+          )}
+        </div>
+
+        <div className="card">
+          <h2>Risky pincodes</h2>
+          {riskyPincodes.length ? (
+            <ul className="list">
+              {riskyPincodes.map((p) => (
+                <li key={p._id}>
+                  <Link href={`/customers?q=${encodeURIComponent(p._id)}&sort=risk`}>
+                    <span className="mono">{p._id}</span>{' '}
+                    <span className="muted small">· {p.city || p.state}</span>
+                    <div className="muted small">
+                      {p.orders} orders · {p.customers} customers · Cust {p.customerReturns} · RTO {p.rto}
+                    </div>
+                  </Link>
+                  <span className={`badge ${p.rate >= 0.5 ? 'badge-red' : 'badge-amber'}`}>{pct(p.rate)} returned</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="muted">Shows up once a pincode has 2+ orders with returns.</p>
           )}
         </div>
 

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { dbConnect } from '@/lib/db';
 import { buildOrderFilter } from '@/lib/orderFilter';
+import { briefRisk, riskForKeys, riskKeysFor, withRiskKeys } from '@/lib/risk';
 import { EMPTY_TABS, IS_CANCELLED, IS_RETURNED, NOT_CANCELLED, TAB_GROUP, countIf, sumIf } from '@/lib/agg';
 import Order from '@/models/Order';
 import Product from '@/models/Product';
@@ -14,7 +15,8 @@ const SORTS = {
 export async function GET(req) {
   await dbConnect();
   const sp = req.nextUrl.searchParams;
-  const filter = buildOrderFilter(sp);
+  const riskKeys = await riskKeysFor(sp);
+  const filter = withRiskKeys(buildOrderFilter(sp), riskKeys);
   const page = Math.max(1, parseInt(sp.get('page') || '1', 10));
   const limit = Math.min(200, Math.max(1, parseInt(sp.get('limit') || '25', 10)));
   const sort = SORTS[sp.get('sort')] || SORTS.newest;
@@ -44,7 +46,7 @@ export async function GET(req) {
     ]),
     // Per-tab counts for the current search/filters (ignoring the selected tab)
     Order.aggregate([
-      { $match: buildOrderFilter(sp, { withTab: false }) },
+      { $match: withRiskKeys(buildOrderFilter(sp, { withTab: false }), riskKeys) },
       { $group: { _id: null, ...TAB_GROUP } },
     ]),
   ]);
@@ -63,6 +65,8 @@ export async function GET(req) {
     },
   ]);
   const customerStats = Object.fromEntries(counts.map((c) => [c._id, c]));
+  const { risk: riskMap } = await riskForKeys(keys);
+  const risk = Object.fromEntries([...riskMap].map(([k, r]) => [k, briefRisk(r)]));
 
   const skus = [...new Set(orders.flatMap((o) => o.items.map((i) => i.sku)).filter(Boolean))];
   const products = await Product.find({ sku: { $in: skus } }).lean();
@@ -77,6 +81,7 @@ export async function GET(req) {
     summary: summary || { orders: 0, cancelledOrders: 0, returnedOrders: 0, returnedItems: 0, amount: 0, returnedAmount: 0, customers: 0 },
     tabs: tabs || EMPTY_TABS,
     customerStats,
+    risk,
     images,
     prices,
     couriers: couriers.filter(Boolean).sort(),

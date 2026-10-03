@@ -38,6 +38,7 @@ const OrderSchema = new mongoose.Schema(
       pincode: String,
     },
     customerKey: { type: String, index: true },
+    addressKey: { type: String, index: true }, // normalized address, to match the same house under another name
     returnTo: String,
     // Shipping label
     paymentType: { type: String, enum: ['Prepaid', 'COD'], default: 'Prepaid' },
