@@ -38,7 +38,17 @@ export async function GET() {
   return NextResponse.json({ uploads });
 }
 
+// Always answer with JSON so the upload screen can show the real reason
 export async function POST(req) {
+  try {
+    return await handleUpload(req);
+  } catch (err) {
+    console.error('Upload failed:', err);
+    return NextResponse.json({ error: `Server error: ${err.message}` }, { status: 500 });
+  }
+}
+
+async function handleUpload(req) {
   await dbConnect();
   const form = await req.formData();
   const files = form.getAll('files').filter((f) => typeof f === 'object' && f.size > 0);

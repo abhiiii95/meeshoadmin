@@ -54,6 +54,10 @@ export default function UploadPage() {
       window.location.href = '/login';
       return;
     }
+    if (res.status === 413) {
+      setError('File too large for the server (max ~4 MB per upload). Upload fewer labels at a time.');
+      return;
+    }
     if (!res.ok || !data.results) {
       setError(data.error || `Upload failed (server error ${res.status}). Please try again.`);
       return;
