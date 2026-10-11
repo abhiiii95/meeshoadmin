@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import CostPrompt from '@/components/CostPrompt';
 import QuickCheck from '@/components/QuickCheck';
 import { fmtDate, inr, pct } from '@/lib/format';
 
@@ -30,6 +31,10 @@ export default function DashboardPage() {
           Upload label PDF
         </Link>
       </div>
+
+      {data.missingCosts?.length > 0 && (
+        <CostPrompt key={data.missingCosts.map((m) => m.sku).join()} items={data.missingCosts} />
+      )}
 
       <QuickCheck />
 

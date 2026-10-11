@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import CostPrompt from '@/components/CostPrompt';
 import RiskBadge from '@/components/RiskBadge';
 import RiskModal from '@/components/RiskModal';
 import { fmtDate } from '@/lib/format';
@@ -13,6 +14,7 @@ export default function UploadPage() {
   const [busy, setBusy] = useState(false);
   const [results, setResults] = useState(null);
   const [alerts, setAlerts] = useState([]);
+  const [missingCosts, setMissingCosts] = useState([]);
   const [openKey, setOpenKey] = useState(null);
   const [error, setError] = useState('');
   const [history, setHistory] = useState([]);
@@ -64,6 +66,7 @@ export default function UploadPage() {
     }
     setResults(data.results);
     setAlerts(data.alerts || []);
+    setMissingCosts(data.missingCosts || []);
     setFiles([]);
     if (inputRef.current) inputRef.current.value = '';
     loadHistory();
@@ -155,6 +158,10 @@ export default function UploadPage() {
       )}
 
       {openKey && <RiskModal customerKey={openKey} onClose={() => setOpenKey(null)} />}
+
+      {results && missingCosts.length > 0 && (
+        <CostPrompt key={missingCosts.map((m) => m.sku).join()} items={missingCosts} title="New products: enter cost" />
+      )}
 
       {results && (
         <div className="card" style={{ marginBottom: 18 }}>

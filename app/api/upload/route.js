@@ -5,6 +5,7 @@ import { parsePage, splitLabels } from '@/lib/parser';
 import { levelRank, riskForKeys } from '@/lib/risk';
 import { cloudinaryEnabled, uploadBuffer } from '@/lib/cloudinary';
 import Order from '@/models/Order';
+import Product from '@/models/Product';
 import Upload from '@/models/Upload';
 
 export const runtime = 'nodejs';
@@ -12,7 +13,12 @@ export const maxDuration = 60;
 
 // New order → insert. Existing order → refresh PDF data but keep return marks.
 async function saveOrder(data, result) {
-  result.saved.push({ orderNo: data.orderNo, awb: data.awb, customerKey: data.customerKey });
+  result.saved.push({
+    orderNo: data.orderNo,
+    awb: data.awb,
+    customerKey: data.customerKey,
+    skus: data.items.map((i) => ({ sku: i.sku, description: i.description })),
+  });
   const existing = await Order.findOne({ orderNo: data.orderNo });
   if (!existing) {
     await Order.create(data);
@@ -145,6 +151,17 @@ async function handleUpload(req) {
     .filter(Boolean)
     .sort((a, b) => levelRank(b.level) - levelRank(a.level));
 
+  // SKUs in this upload that have no purchase price yet — ask the user for them
+  const skuInfo = new Map();
+  for (const s of saved) for (const i of s.skus) if (i.sku && !skuInfo.has(i.sku)) skuInfo.set(i.sku, i.description);
+  const priced = await Product.find({ sku: { $in: [...skuInfo.keys()] }, purchasePrice: { $ne: null } })
+    .select('sku')
+    .lean();
+  const pricedSet = new Set(priced.map((p) => p.sku));
+  const missingCosts = [...skuInfo]
+    .filter(([sku]) => !pricedSet.has(sku))
+    .map(([sku, description]) => ({ sku, description }));
+
   for (const r of results) delete r.saved;
-  return NextResponse.json({ results, alerts });
+  return NextResponse.json({ results, alerts, missingCosts });
 }

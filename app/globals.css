@@ -255,6 +255,13 @@ td.num, th.num { text-align: right; white-space: nowrap; }
 .alert-card.medium { background: var(--amber-bg); border-color: #f0d49a; }
 .alert-card ul { margin: 6px 0 0; padding-left: 18px; font-size: 13px; }
 
+/* Ask for product cost */
+.cost-prompt { display: flex; flex-direction: column; gap: 10px; margin-bottom: 18px; border-color: #f0d49a; background: #fffaf0; }
+.cost-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; border-top: 1px solid var(--border); }
+.cost-desc { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 520px; }
+.cost-input { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.cost-input input { width: 110px; }
+
 /* Dashboard status cards */
 .status-cards { grid-template-columns: repeat(4, 1fr); margin-bottom: 18px; }
 a.card.stat.status-card { border-top: 4px solid var(--tab, var(--primary)); }

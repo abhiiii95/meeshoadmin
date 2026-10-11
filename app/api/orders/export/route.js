@@ -13,7 +13,7 @@ export async function GET(req) {
   await dbConnect();
   const sp = req.nextUrl.searchParams;
   const orders = await Order.find(withRiskKeys(buildOrderFilter(sp), await riskKeysFor(sp)))
-    .sort({ orderDate: -1 })
+    .sort({ orderDate: -1, _id: -1 })
     .lean();
 
   const header = [

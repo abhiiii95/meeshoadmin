@@ -12,6 +12,7 @@ import { fmtDate, inr, pct } from '@/lib/format';
 const FILTER_KEYS = ['q', 'risk', 'minOrders', 'minReturns', 'sort'];
 
 const SORT_LABELS = {
+  orders: 'Most orders',
   risk: 'Riskiest first',
   returns: 'Most returns',
   returnRate: 'Highest return rate',
@@ -128,12 +129,12 @@ function CustomersView() {
           onChange={(e) => setDraft({ ...draft, minReturns: e.target.value })}
         />
         <select value={draft.sort} onChange={(e) => apply({ sort: e.target.value })}>
-          <option value="">Most orders</option>
+          <option value="">Latest order first</option>
+          <option value="orders">Most orders</option>
           <option value="risk">Riskiest first</option>
           <option value="returns">Most returns</option>
           <option value="returnRate">Highest return rate</option>
           <option value="spent">Highest spend</option>
-          <option value="last">Recent order</option>
           <option value="name">Name A–Z</option>
         </select>
         <button className="btn btn-primary">Apply</button>

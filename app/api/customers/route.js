@@ -50,7 +50,8 @@ export async function GET(req) {
       (!minReturns || c.returnedOrders >= minReturns) &&
       (!LEVELS.includes(riskLevel) || levelRank(c.risk.level) >= levelRank(riskLevel))
   );
-  rows.sort(SORTS[sp.get('sort')] || SORTS.orders);
+  // Default: customer with the latest order first
+  rows.sort(SORTS[sp.get('sort')] || SORTS.last);
 
   const total = rows.length;
   return NextResponse.json({

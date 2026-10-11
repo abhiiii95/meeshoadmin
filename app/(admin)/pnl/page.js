@@ -56,7 +56,7 @@ export default function PnlPage() {
             <div className="card stat">
               <div className="label">Profit</div>
               <div className="value"><Money value={t.profit} signed /></div>
-              <div className="sub">after returns, cost &amp; charges</div>
+              <div className="sub">after returns, cost, packaging &amp; charges</div>
             </div>
             <div className="card stat">
               <div className="label">Orders</div>
@@ -85,6 +85,11 @@ export default function PnlPage() {
               <div className="sub">items kept by customers</div>
             </div>
             <div className="card stat">
+              <div className="label">Packaging</div>
+              <div className="value">{inr(t.packagingCost)}</div>
+              <div className="sub">₹{data.packagingPerOrder} × {t.orders} orders shipped</div>
+            </div>
+            <div className="card stat">
               <div className="label">Return losses</div>
               <div className="value" style={{ color: 'var(--red)' }}>{inr(t.returnCharges + t.lostValue)}</div>
               <div className="sub">
@@ -105,6 +110,7 @@ export default function PnlPage() {
                   <th className="num">Returned sales</th>
                   <th className="num">Net sales</th>
                   <th className="num">Product cost</th>
+                  <th className="num">Packaging</th>
                   <th className="num">Meesho return charge</th>
                   <th className="num">Wrong product loss</th>
                   <th className="num">Profit</th>
@@ -138,6 +144,7 @@ export default function PnlPage() {
                     <td className="num half" data-label="Returned sales">−{inr(m.returnedSales)}</td>
                     <td className="num half" data-label="Net sales">{inr(m.netSales)}</td>
                     <td className="num half" data-label="Product cost">−{inr(m.productCost)}</td>
+                    <td className="num half" data-label="Packaging">−{inr(m.packagingCost)}</td>
                     <td className="num half" data-label="Meesho return charge" style={{ color: m.returnCharges ? 'var(--red)' : undefined }}>
                       −{inr(m.returnCharges)}
                     </td>
@@ -151,7 +158,7 @@ export default function PnlPage() {
                 ))}
                 {!data.months.length && (
                   <tr>
-                    <td colSpan={10} className="empty">No orders in this period</td>
+                    <td colSpan={11} className="empty">No orders in this period</td>
                   </tr>
                 )}
               </tbody>
@@ -159,8 +166,8 @@ export default function PnlPage() {
           </div>
 
           <p className="muted small" style={{ marginTop: 12 }}>
-            Profit = Net sales (invoice value of orders not returned) − product cost of those items − Meesho return
-            charges (₹157 per customer return, ₹0 for RTO) − purchase value of products lost when a wrong product came
+            Profit = Net sales (invoice value of orders not returned) − product cost of those items − packaging
+            (₹{data.packagingPerOrder} per shipped order, returns included) − Meesho return charges (₹157 per customer return, ₹0 for RTO) − purchase value of products lost when a wrong product came
             back. Returns are counted in the month the order was placed. Cancelled orders are not counted in sales or
             profit.
           </p>

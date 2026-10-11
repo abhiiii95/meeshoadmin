@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
+import { PACKAGING_COST } from '@/lib/constants';
 import { dbConnect } from '@/lib/db';
 import Order from '@/models/Order';
 
 // Month-wise profit & loss, grouped by order month.
-// profit = sales − returned sales − product cost − Meesho return charges − wrong-product losses
+// profit = sales − returned sales − product cost − packaging − Meesho return charges − wrong-product losses
 export async function GET(req) {
   await dbConnect();
   const year = parseInt(req.nextUrl.searchParams.get('year') || '', 10);
@@ -77,7 +78,15 @@ export async function GET(req) {
     const netSales = r.sales - r.returnedSales;
     const cancelled = cancelledBy[`${r.year}-${r.month}`] || 0;
     delete cancelledBy[`${r.year}-${r.month}`];
-    return { ...r, cancelled, netSales, profit: netSales - r.productCost - r.returnCharges - r.lostValue };
+    // Packaging is spent on every shipped order, even if it comes back
+    const packagingCost = r.orders * PACKAGING_COST;
+    return {
+      ...r,
+      cancelled,
+      netSales,
+      packagingCost,
+      profit: netSales - r.productCost - packagingCost - r.returnCharges - r.lostValue,
+    };
   });
   // Months that only have cancelled orders
   for (const [key, n] of Object.entries(cancelledBy)) {
@@ -85,13 +94,13 @@ export async function GET(req) {
     months.push({
       year: y, month: m, orders: 0, returnedOrders: 0, items: 0, sales: 0, returnedSales: 0, netSales: 0,
       rto: 0, customerReturns: 0, wrongProducts: 0, returnCharges: 0, lostValue: 0, productCost: 0,
-      missingCost: 0, profit: 0, cancelled: n,
+      packagingCost: 0, missingCost: 0, profit: 0, cancelled: n,
     });
   }
   months.sort((a, b) => b.year - a.year || b.month - a.month);
 
   const keys = ['orders', 'cancelled', 'returnedOrders', 'items', 'sales', 'returnedSales', 'netSales', 'rto', 'customerReturns',
-    'wrongProducts', 'returnCharges', 'lostValue', 'productCost', 'missingCost', 'profit'];
+    'wrongProducts', 'returnCharges', 'lostValue', 'productCost', 'packagingCost', 'missingCost', 'profit'];
   const totals = Object.fromEntries(keys.map((k) => [k, months.reduce((s, m) => s + (m[k] || 0), 0)]));
 
   const years = (await Order.aggregate([
@@ -100,5 +109,5 @@ export async function GET(req) {
     { $sort: { _id: -1 } },
   ])).map((y) => y._id);
 
-  return NextResponse.json({ months, totals, years });
+  return NextResponse.json({ months, totals, years, packagingPerOrder: PACKAGING_COST });
 }

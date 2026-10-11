@@ -93,6 +93,25 @@ export async function GET() {
     { $limit: 8 },
   ]);
 
+  // Sold SKUs that still have no purchase price (latest first)
+  const missingCosts = await Order.aggregate([
+    { $match: { status: { $ne: 'cancelled' } } },
+    { $unwind: '$items' },
+    { $match: { 'items.sku': { $nin: [null, ''] } } },
+    {
+      $group: {
+        _id: '$items.sku',
+        description: { $last: '$items.description' },
+        lastOrder: { $max: '$orderDate' },
+      },
+    },
+    { $lookup: { from: 'products', localField: '_id', foreignField: 'sku', as: 'p' } },
+    { $match: { 'p.purchasePrice': { $not: { $type: 'number' } } } },
+    { $sort: { lastOrder: -1 } },
+    { $limit: 20 },
+    { $project: { _id: 0, sku: '$_id', description: 1 } },
+  ]);
+
   const recentUploads = await Upload.find().sort({ createdAt: -1 }).limit(5).lean();
 
   return NextResponse.json({
@@ -101,6 +120,7 @@ export async function GET() {
     tabs: tabs || EMPTY_TABS,
     riskLevels,
     riskyPincodes,
+    missingCosts,
     topReturners,
     topReturnedSkus,
     recentUploads,

@@ -35,7 +35,7 @@ export async function GET(req) {
       },
     },
     { $project: { p: 0 } },
-    { $sort: { qty: -1 } }
+    { $sort: { lastOrder: -1, qty: -1 } }
   );
 
   const products = await Order.aggregate(pipeline);

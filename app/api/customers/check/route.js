@@ -27,7 +27,7 @@ export async function GET(req) {
         { 'items.subOrderNo': q },
       ],
     })
-      .sort({ orderDate: -1 })
+      .sort({ orderDate: -1, _id: -1 })
       .limit(300)
       .select('customerKey')
       .lean();
@@ -46,7 +46,7 @@ export async function GET(req) {
 
   if (customerKey && customers[0]) {
     customers[0].recentOrders = await Order.find({ customerKey })
-      .sort({ orderDate: -1 })
+      .sort({ orderDate: -1, _id: -1 })
       .limit(10)
       .select('orderNo orderDate status totalAmount paymentType items.sku items.returned items.returnType items.wrongProduct')
       .lean();
