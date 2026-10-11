@@ -110,6 +110,15 @@ input:focus, select:focus, textarea:focus { outline: 2px solid #e6b8df; border-c
 
 .filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 14px; }
 .filters input[type='search'] { min-width: 260px; flex: 1; }
+.filter-chips { margin-top: -4px; gap: 6px; }
+.filter-chips .chip { padding: 5px 6px 5px 11px; }
+.filter-chips .chip button {
+  width: 20px; height: 20px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+  background: rgba(124, 31, 112, 0.12); font-size: 15px; line-height: 1;
+}
+.filter-chips .chip button:hover { background: var(--primary); color: #fff; }
+.btn-clear { color: var(--red); border-color: #f3b8b2; background: #fff; }
+.btn-clear:hover { background: var(--red-bg); }
 .chip {
   display: inline-flex; align-items: center; gap: 6px;
   background: #f6e6f3; color: var(--primary-dark);

@@ -3,12 +3,29 @@
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
+import FilterChips from '@/components/FilterChips';
 import Pagination from '@/components/Pagination';
 import RiskBadge from '@/components/RiskBadge';
 import RiskModal from '@/components/RiskModal';
 import { fmtDate, inr, pct } from '@/lib/format';
 
 const FILTER_KEYS = ['q', 'risk', 'minOrders', 'minReturns', 'sort'];
+
+const SORT_LABELS = {
+  risk: 'Riskiest first',
+  returns: 'Most returns',
+  returnRate: 'Highest return rate',
+  spent: 'Highest spend',
+  last: 'Recent order',
+  name: 'Name A–Z',
+};
+const CHIP_LABEL = {
+  q: (v) => `Search: "${v}"`,
+  risk: (v) => ({ fraud: 'Fraud', high: 'High risk +', medium: 'Medium risk +' })[v] || v,
+  minOrders: (v) => `Min ${v} orders`,
+  minReturns: (v) => `Min ${v} returns`,
+  sort: (v) => `Sort: ${SORT_LABELS[v] || v}`,
+};
 
 const RISK_TABS = [
   { key: '', label: 'All', count: (l) => l.low + l.medium + l.high + l.fraud, cls: '' },
@@ -127,6 +144,12 @@ function CustomersView() {
           Returners
         </button>
       </form>
+
+      <FilterChips
+        chips={FILTER_KEYS.filter((k) => filters[k]).map((k) => ({ key: k, label: CHIP_LABEL[k](filters[k]) }))}
+        onRemove={(key) => apply({ [key]: '' })}
+        onClear={() => router.push('/customers')}
+      />
 
       <div className="table-wrap">
         <table className="cards">

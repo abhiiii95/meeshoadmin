@@ -4,6 +4,7 @@ import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Pagination from '@/components/Pagination';
 import CancelModal from '@/components/CancelModal';
+import FilterChips from '@/components/FilterChips';
 import OrderDetails from '@/components/OrderDetails';
 import ReturnModal from '@/components/ReturnModal';
 import RiskBadge from '@/components/RiskBadge';
@@ -12,6 +13,16 @@ import StatusBadge from '@/components/StatusBadge';
 import { fmtDate, inr } from '@/lib/format';
 
 const FILTER_KEYS = ['tab', 'q', 'status', 'risk', 'payment', 'courier', 'from', 'to', 'customerKey', 'sku', 'sort'];
+
+const RISK_LABELS = { medium: 'Medium risk +', high: 'High risk + fraud', fraud: 'Fraud only' };
+const SORT_LABELS = { oldest: 'Oldest first', amount: 'Highest amount' };
+const STATUS_LABELS = {
+  anyReturn: 'Any return',
+  active: 'Not returned',
+  partial: 'Partly returned',
+  returned: 'Fully returned',
+  cancelled: 'Cancelled',
+};
 
 const TAB_LIST = [
   { key: '', label: 'All', count: 'all', cls: '' },
@@ -108,6 +119,24 @@ function OrdersView() {
       ? data.orders[0].customer?.name
       : filters.customerKey.split('|')[0];
 
+  // One chip per active filter (the tab has its own bar)
+  const chipLabel = {
+    q: (v) => `Search: "${v}"`,
+    status: (v) => `Status: ${STATUS_LABELS[v] || v}`,
+    risk: (v) => RISK_LABELS[v] || v,
+    payment: (v) => `Payment: ${v}`,
+    courier: (v) => `Courier: ${v}`,
+    from: (v) => `From: ${fmtDate(v)}`,
+    to: (v) => `To: ${fmtDate(v)}`,
+    customerKey: () => `Customer: ${customerName}`,
+    sku: (v) => `SKU: ${v}`,
+    sort: (v) => `Sort: ${SORT_LABELS[v] || v}`,
+  };
+  const chips = FILTER_KEYS.filter((k) => k !== 'tab' && filters[k]).map((k) => ({
+    key: k,
+    label: chipLabel[k] ? chipLabel[k](filters[k]) : `${k}: ${filters[k]}`,
+  }));
+
   return (
     <>
       <div className="page-head">
@@ -173,22 +202,11 @@ function OrdersView() {
         </select>
       </form>
 
-      {(filters.customerKey || filters.sku) && (
-        <div className="filters">
-          {filters.customerKey && (
-            <span className="chip">
-              Customer: {customerName}
-              <button type="button" onClick={() => apply({ customerKey: '' })}>×</button>
-            </span>
-          )}
-          {filters.sku && (
-            <span className="chip">
-              SKU: {filters.sku}
-              <button type="button" onClick={() => apply({ sku: '' })}>×</button>
-            </span>
-          )}
-        </div>
-      )}
+      <FilterChips
+        chips={chips}
+        onRemove={(key) => apply({ [key]: '' })}
+        onClear={() => router.push(filters.tab ? `/orders?tab=${filters.tab}` : '/orders')}
+      />
 
       {data?.error && <div className="alert alert-error">Could not load orders.</div>}
 

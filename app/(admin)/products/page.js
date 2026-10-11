@@ -100,6 +100,18 @@ export default function ProductsPage() {
       >
         <input type="search" placeholder="Search SKU or product name…" value={q} onChange={(e) => setQ(e.target.value)} />
         <button className="btn btn-primary">Search</button>
+        {q && (
+          <button
+            type="button"
+            className="btn btn-clear"
+            onClick={() => {
+              setQ('');
+              load('');
+            }}
+          >
+            ✕ Clear
+          </button>
+        )}
       </form>
 
       <p className="muted small" style={{ marginTop: -4 }}>
