@@ -15,6 +15,8 @@ export default function PnlPage() {
   const [year, setYear] = useState(String(new Date().getFullYear()));
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
+  const [mode, setMode] = useState('order');
+  const [payments, setPayments] = useState(null);
 
   useEffect(() => {
     setData(null);
@@ -24,6 +26,14 @@ export default function PnlPage() {
       .catch(() => setError('Could not load profit & loss'));
   }, [year]);
 
+  useEffect(() => {
+    if (mode !== 'payment' || payments) return;
+    fetch('/api/payments')
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then(setPayments)
+      .catch(() => setError('Could not load payments'));
+  }, [mode, payments]);
+
   const t = data?.totals;
   const years = data?.years?.length ? data.years : [Number(year)];
   const returns = (r) => r.rto + r.customerReturns;
@@ -32,18 +42,110 @@ export default function PnlPage() {
     <>
       <div className="page-head">
         <h1>Profit &amp; Loss</h1>
-        <select value={year} onChange={(e) => setYear(e.target.value)}>
-          {years.map((y) => (
-            <option key={y} value={y}>{y}</option>
-          ))}
-          <option value="">All years</option>
-        </select>
+        {mode === 'order' && (
+          <select value={year} onChange={(e) => setYear(e.target.value)}>
+            {years.map((y) => (
+              <option key={y} value={y}>{y}</option>
+            ))}
+            <option value="">All years</option>
+          </select>
+        )}
+      </div>
+
+      <div className="tabs" role="tablist">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mode === 'order'}
+          className={`tab${mode === 'order' ? ' on' : ''}`}
+          onClick={() => setMode('order')}
+        >
+          By order month
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mode === 'payment'}
+          className={`tab${mode === 'payment' ? ' on' : ''}`}
+          onClick={() => setMode('payment')}
+        >
+          By payment month
+        </button>
       </div>
 
       {error && <div className="alert alert-error">{error}</div>}
-      {!data && !error && <p className="muted">Loading…</p>}
 
-      {t && (
+      {mode === 'payment' && (
+        <>
+          {!payments && !error && <p className="muted">Loading…</p>}
+          {payments && (
+            <>
+              <p className="muted small" style={{ marginTop: -4 }}>
+                Uses the money Meesho actually paid, from your uploaded Excel reports. A month shows up here when a
+                payment came in that month, even if the orders were placed earlier.
+              </p>
+              {payments.totals.missingCost > 0 && (
+                <div className="alert alert-error">
+                  {payments.totals.missingCost} order(s) have no product cost, so profit is shown too high.{' '}
+                  <Link href="/payments?view=fix">Enter cost →</Link>
+                </div>
+              )}
+              <div className="table-wrap">
+                <table className="cards">
+                  <thead>
+                    <tr>
+                      <th>Month</th>
+                      <th className="num">Payment received</th>
+                      <th className="num">Orders first paid</th>
+                      <th className="num">Product cost</th>
+                      <th className="num">Packaging</th>
+                      <th className="num">Products lost</th>
+                      <th className="num">Profit / loss</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {payments.paymentMonths.map((m) => {
+                      const [y, mo] = m.month.split('-');
+                      return (
+                        <tr key={m.month}>
+                          <td>
+                            <strong>{MONTHS[+mo - 1]} {y}</strong>
+                            <div className="muted small">
+                              for orders of {m.orderMonths.map((o) => MONTHS[+o.month.split('-')[1] - 1]).join(', ')}
+                            </div>
+                          </td>
+                          <td className="num half" data-label="Payment received"><Money value={m.amount} /></td>
+                          <td className="num half" data-label="Orders first paid">{m.firstPaidOrders}</td>
+                          <td className="num half" data-label="Product cost">−{inr(m.productCost)}</td>
+                          <td className="num half" data-label="Packaging">−{inr(m.packaging)}</td>
+                          <td className="num half" data-label="Products lost">−{inr(m.lostValue)}</td>
+                          <td className="num" data-label="Profit / loss">
+                            <strong><Money value={m.profit} signed /></strong>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {!payments.paymentMonths.length && (
+                      <tr>
+                        <td colSpan={7} className="empty">Upload a payment report to see this</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <p className="muted small" style={{ marginTop: 12 }}>
+                Profit = payment received − product cost − ₹{payments.packagingPerOrder} packaging − products lost. An
+                order&apos;s costs count once, in the month of its first payment. Later rows, like a return charge,
+                count in the month they were paid.
+              </p>
+            </>
+          )}
+        </>
+      )}
+
+      {mode === 'order' && !data && !error && <p className="muted">Loading…</p>}
+
+      {mode === 'order' && t && (
         <>
           {t.missingCost > 0 && (
             <div className="alert alert-error">

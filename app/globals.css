@@ -262,6 +262,11 @@ td.num, th.num { text-align: right; white-space: nowrap; }
 .cost-input { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 .cost-input input { width: 110px; }
 
+.rank {
+  display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%;
+  background: #f6e6f3; color: var(--primary-dark); font-weight: 700; font-size: 13px;
+}
+
 /* Payments */
 .month-cards { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
 .month-card.on { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
