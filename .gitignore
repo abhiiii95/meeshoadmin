@@ -5,3 +5,7 @@ out
 .env.local
 .env*.local
 .DS_Store
+
+# Customer data exports
+*.xlsx
+*.xls

@@ -11,6 +11,7 @@ const LINKS = [
   { href: '/customers', label: 'Customers' },
   { href: '/returns', label: 'Returns' },
   { href: '/pnl', label: 'Profit & Loss' },
+  { href: '/payments', label: 'Payments (Excel)' },
   { href: '/products', label: 'Products' },
 ];
 

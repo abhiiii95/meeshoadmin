@@ -262,6 +262,15 @@ td.num, th.num { text-align: right; white-space: nowrap; }
 .cost-input { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 .cost-input input { width: 110px; }
 
+/* Payments */
+.month-cards { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+.month-card.on { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
+.month-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 2px; }
+.month-result { font-size: 18px; }
+.calc { list-style: none; margin: 8px 0; padding: 0; }
+.calc li { display: flex; justify-content: space-between; gap: 12px; padding: 3px 0; }
+.calc li.total { border-top: 1px solid var(--border); margin-top: 4px; padding-top: 6px; font-weight: 700; }
+
 /* Dashboard status cards */
 .status-cards { grid-template-columns: repeat(4, 1fr); margin-bottom: 18px; }
 a.card.stat.status-card { border-top: 4px solid var(--tab, var(--primary)); }
