@@ -5,6 +5,7 @@ import {
 } from '@/lib/agg';
 import { allRisk } from '@/lib/risk';
 import Order from '@/models/Order';
+import PaymentLine from '@/models/PaymentLine';
 import Upload from '@/models/Upload';
 
 export async function GET() {
@@ -21,12 +22,35 @@ export async function GET() {
         revenue: sumIf(NOT_CANCELLED, '$totalAmount'),
         returnedAmount: { $sum: '$returnedAmount' },
         cod: countIf({ $and: [NOT_CANCELLED, { $eq: ['$paymentType', 'COD'] }] }),
+        prepaid: countIf({ $and: [NOT_CANCELLED, { $eq: ['$paymentType', 'Prepaid'] }] }),
+      },
+    },
+  ]);
+
+  // Money actually settled by Meesho, from the uploaded payment reports
+  const paymentMonth = new Date().toISOString().slice(0, 7);
+  const [payments] = await PaymentLine.aggregate([
+    { $match: { paymentDate: { $ne: null } } },
+    {
+      $group: {
+        _id: null,
+        total: { $sum: '$settlement' },
+        thisMonth: {
+          $sum: {
+            $cond: [
+              { $eq: [{ $dateToString: { format: '%Y-%m', date: '$paymentDate' } }, paymentMonth] },
+              '$settlement',
+              0,
+            ],
+          },
+        },
+        lastPayment: { $max: '$paymentDate' },
       },
     },
   ]);
 
   const [customerTotals] = await Order.aggregate([
-    { $match: { status: { $ne: 'cancelled' } } },
+    { $match: { status: { $ne: 'cancelled' }, source: { $ne: 'excel' } } },
     { $group: { _id: '$customerKey', orders: { $sum: 1 } } },
     {
       $group: {
@@ -38,7 +62,7 @@ export async function GET() {
   ]);
 
   const topReturners = await Order.aggregate([
-    { $match: { status: { $in: ['partial', 'returned'] } } },
+    { $match: { status: { $in: ['partial', 'returned'] }, source: { $ne: 'excel' } } },
     {
       $group: {
         _id: '$customerKey',
@@ -117,6 +141,9 @@ export async function GET() {
   return NextResponse.json({
     totals: totals || { orders: 0, cancelled: 0, returnedOrders: 0, items: 0, revenue: 0, returnedAmount: 0, cod: 0 },
     customers: customerTotals || { customers: 0, repeat: 0 },
+    payments: payments
+      ? { total: Math.round(payments.total * 100) / 100, thisMonth: Math.round(payments.thisMonth * 100) / 100, lastPayment: payments.lastPayment }
+      : { total: 0, thisMonth: 0, lastPayment: null },
     tabs: tabs || EMPTY_TABS,
     riskLevels,
     riskyPincodes,

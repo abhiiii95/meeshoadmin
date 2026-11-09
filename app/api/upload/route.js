@@ -112,7 +112,7 @@ async function handleUpload(req) {
             continue;
           }
           try {
-            await saveOrder({ ...parsed, upload: upload._id, pdfUrl, page: pageNo }, result);
+            await saveOrder({ ...parsed, source: 'label', upload: upload._id, pdfUrl, page: pageNo }, result);
           } catch (err) {
             result.failed.push({ page: where, reason: err.message });
           }

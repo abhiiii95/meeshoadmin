@@ -38,6 +38,33 @@ export default function DashboardPage() {
 
       <QuickCheck />
 
+      <div className="grid stats">
+        <Stat
+          href="/orders"
+          label="Total orders till date"
+          value={totals.orders + totals.cancelled}
+          sub={`${totals.orders} shipped · ${totals.cancelled} cancelled`}
+        />
+        <Stat
+          href="/orders?status=anyReturn"
+          label="Total returns till date"
+          value={totals.returnedOrders}
+          sub={`${pct(returnRate)} of shipped orders`}
+        />
+        <Stat
+          href="/payments"
+          label="Payment received"
+          value={inr(data.payments.total)}
+          sub={data.payments.lastPayment ? `last on ${fmtDate(data.payments.lastPayment)}` : 'upload a payment report'}
+        />
+        <Stat
+          href="/payments?view=dates"
+          label="Payment this month"
+          value={inr(data.payments.thisMonth)}
+          sub="from Meesho"
+        />
+      </div>
+
       <div className="grid status-cards">
         <StatusCard
           href="/orders?tab=delivered"
@@ -70,19 +97,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid stats">
-        <Stat
-          href="/orders"
-          label="Orders"
-          value={totals.orders}
-          sub={`${totals.items} items${totals.cancelled ? ` · ${totals.cancelled} cancelled` : ''}`}
-        />
         <Stat href="/pnl" label="Revenue" value={inr(totals.revenue)} sub={`${inr(totals.returnedAmount)} returned`} />
-        <Stat
-          href="/orders?status=anyReturn"
-          label="Returned orders"
-          value={totals.returnedOrders}
-          sub={`${pct(returnRate)} return rate`}
-        />
         <Stat
           href="/customers"
           label="Customers"
@@ -98,8 +113,12 @@ export default function DashboardPage() {
         <Stat
           href="/orders?payment=COD"
           label="COD / Prepaid"
-          value={`${totals.cod} / ${totals.orders - totals.cod}`}
-          sub="tap to see COD orders"
+          value={`${totals.cod} / ${totals.prepaid}`}
+          sub={
+            totals.orders - totals.cod - totals.prepaid > 0
+              ? `${totals.orders - totals.cod - totals.prepaid} unknown (no label)`
+              : 'tap to see COD orders'
+          }
         />
       </div>
 

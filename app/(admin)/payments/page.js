@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import CostPrompt from '@/components/CostPrompt';
 import { fmtDate, inr } from '@/lib/format';
 
@@ -9,6 +10,14 @@ const monthLabel = (m) => {
   const [y, mo] = String(m).split('-');
   return MONTH_NAMES[+mo - 1] ? `${MONTH_NAMES[+mo - 1]} ${y}` : 'No date';
 };
+
+const VIEWS = [
+  { key: 'months', label: 'Monthly profit / loss' },
+  { key: 'dates', label: 'Payments received' },
+  { key: 'orders', label: 'Orders' },
+  { key: 'fix', label: 'To fix' },
+  { key: 'upload', label: 'Upload Excel' },
+];
 
 const TABS = [
   { key: '', label: 'All', cls: '' },
@@ -34,6 +43,16 @@ function Rupees({ value, signed }) {
 }
 
 export default function PaymentsPage() {
+  return (
+    <Suspense fallback={<p className="muted">Loading…</p>}>
+      <PaymentsView />
+    </Suspense>
+  );
+}
+
+function PaymentsView() {
+  const sp = useSearchParams();
+  const [view, setView] = useState(VIEWS.some((v) => v.key === sp.get('view')) ? sp.get('view') : 'months');
   const inputRef = useRef(null);
   const [data, setData] = useState(null);
   const [loadError, setLoadError] = useState('');
@@ -45,6 +64,8 @@ export default function PaymentsPage() {
   const [tab, setTab] = useState('');
   const [q, setQ] = useState('');
   const [details, setDetails] = useState(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState(null);
 
   const load = useCallback(async () => {
     const res = await fetch('/api/payments');
@@ -123,6 +144,17 @@ export default function PaymentsPage() {
   );
   const tabCount = (key) => (key ? inMonth.filter((o) => o.category === key).length : inMonth.length);
   const t = data?.totals;
+  const fixCount = (data?.mismatches?.length || 0) + (data?.missingCosts?.length || 0);
+
+  async function resync() {
+    setSyncing(true);
+    const res = await fetch('/api/payments/sync', { method: 'POST' });
+    const json = await res.json().catch(() => ({}));
+    setSyncing(false);
+    if (res.ok) setSyncResult(json);
+    else setUploadError(json.error || 'Could not update the other sections');
+    load();
+  }
 
   return (
     <>
@@ -130,54 +162,115 @@ export default function PaymentsPage() {
         <h1>Payments (Excel)</h1>
       </div>
 
-      <div className="card" style={{ marginBottom: 18 }}>
-        <h2>Upload Meesho payment report</h2>
-        <p className="muted small" style={{ marginTop: -6 }}>
-          Upload the .xlsx file downloaded from Meesho. Uploading the same report again won&apos;t count anything twice.
-        </p>
-        <div className="filters" style={{ margin: 0 }}>
-          <input
-            ref={inputRef}
-            type="file"
-            accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            onChange={(e) => {
-              setFile(e.target.files?.[0] || null);
-              setResult(null);
-              setUploadError('');
-            }}
-            style={{ flex: 1, minWidth: 220 }}
-          />
-          <button className="btn btn-primary" disabled={!file || busy} onClick={upload}>
-            {busy ? 'Reading…' : 'Upload'}
+      <div className="tabs" role="tablist">
+        {VIEWS.map((v) => (
+          <button
+            key={v.key}
+            type="button"
+            role="tab"
+            aria-selected={view === v.key}
+            className={`tab${view === v.key ? ' on' : ''}`}
+            onClick={() => setView(v.key)}
+          >
+            {v.label}
+            {v.key === 'fix' && fixCount > 0 && <span className="tab-count">{fixCount}</span>}
           </button>
-        </div>
-        {uploadError && <div className="alert alert-error" style={{ marginTop: 12, marginBottom: 0 }}>{uploadError}</div>}
-        {result && (
-          <div className="alert alert-ok" style={{ marginTop: 12, marginBottom: 0 }}>
-            <strong>{result.fileName}</strong>: {result.orders} orders read ({result.lines} rows) · {result.inserted} new
-            rows · {result.updated} already saved
-          </div>
-        )}
-        {result?.warnings?.map((w) => (
-          <div className="alert alert-error" style={{ marginTop: 8, marginBottom: 0 }} key={w}>{w}</div>
         ))}
       </div>
 
       {loadError && <div className="alert alert-error">{loadError}</div>}
       {!data && !loadError && <p className="muted">Loading…</p>}
 
-      {data && !orders.length && <div className="card empty">Upload a payment report to see month-wise payments.</div>}
+      {view === 'upload' && (
+        <>
+          <div className="card" style={{ marginBottom: 18 }}>
+            <h2>Upload Meesho payment report</h2>
+            <p className="muted small" style={{ marginTop: -6 }}>
+              Upload the .xlsx file downloaded from Meesho. It updates the Dashboard, Orders, Returns, Products and
+              Profit &amp; Loss too. Uploading the same report again won&apos;t count anything twice.
+            </p>
+            <div className="filters" style={{ margin: 0 }}>
+              <input
+                ref={inputRef}
+                type="file"
+                accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                onChange={(e) => {
+                  setFile(e.target.files?.[0] || null);
+                  setResult(null);
+                  setUploadError('');
+                }}
+                style={{ flex: 1, minWidth: 220 }}
+              />
+              <button className="btn btn-primary" disabled={!file || busy} onClick={upload}>
+                {busy ? 'Reading…' : 'Upload'}
+              </button>
+            </div>
+            {uploadError && <div className="alert alert-error" style={{ marginTop: 12, marginBottom: 0 }}>{uploadError}</div>}
+            {result && (
+              <div className="alert alert-ok" style={{ marginTop: 12, marginBottom: 0 }}>
+                <strong>{result.fileName}</strong>: {result.orders} orders · {result.inserted} new rows ·{' '}
+                {result.updated} already saved
+                <div className="small" style={{ marginTop: 6 }}>
+                  Orders placed in: {result.orderMonths.map(monthLabel).join(', ') || '—'}
+                  <br />
+                  Payment dates: {result.paymentDays.map((d) => fmtDate(d)).join(', ') || 'not paid yet'} ·{' '}
+                  {inr(result.amount)}
+                  <br />
+                  Other sections: {result.sync.created} orders added · {result.sync.changes.length} orders updated
+                </div>
+                <button className="btn btn-sm" style={{ marginTop: 8 }} onClick={() => setView('dates')}>
+                  See payments received →
+                </button>
+              </div>
+            )}
+            {result?.warnings?.map((w) => (
+              <div className="alert alert-error" style={{ marginTop: 8, marginBottom: 0 }} key={w}>{w}</div>
+            ))}
+          </div>
 
-      {data?.missingCosts?.length > 0 && (
-        <CostPrompt
-          key={data.missingCosts.map((m) => m.sku).join()}
-          items={data.missingCosts}
-          title="Enter product cost to get the correct profit"
-          onSaved={load}
-        />
+          <div className="card" style={{ marginBottom: 18 }}>
+            <h2>Update other sections again</h2>
+            <p className="muted small" style={{ marginTop: -6 }}>
+              Applies all uploaded reports to Orders, Returns and the Dashboard. You only need this if something looks
+              out of date.
+            </p>
+            <button className="btn" disabled={syncing} onClick={resync}>
+              {syncing ? 'Updating…' : 'Update now'}
+            </button>
+            {syncResult && (
+              <div className="alert alert-ok" style={{ marginTop: 12, marginBottom: 0 }}>
+                {syncResult.created} orders added · {syncResult.changes.length} orders updated
+              </div>
+            )}
+          </div>
+
+          {data?.uploads?.length > 0 && (
+            <>
+              <h2 style={{ fontSize: 15 }}>Upload history</h2>
+              <ul className="list card">
+                {data.uploads.map((u) => (
+                  <li key={u._id}>
+                    <span>
+                      {u.fileName}
+                      <div className="muted small">{fmtDate(u.createdAt)}</div>
+                    </span>
+                    <span className="small nowrap">{u.inserted ?? 0} new · {u.updated ?? 0} already saved</span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </>
       )}
 
-      {t && orders.length > 0 && (
+      {data && !orders.length && view !== 'upload' && (
+        <div className="card empty">
+          No payment report yet.{' '}
+          <button className="btn btn-sm" onClick={() => setView('upload')}>Upload Excel</button>
+        </div>
+      )}
+
+      {t && orders.length > 0 && view === 'months' && (
         <>
           <div className="grid stats">
             <div className="card stat">
@@ -202,35 +295,17 @@ export default function PaymentsPage() {
             </div>
           </div>
 
-          {data.mismatches.length > 0 && (
-            <div className="card" style={{ marginBottom: 18, borderColor: '#f0d49a' }}>
-              <h2>⚠ {data.mismatches.length} order(s) don&apos;t match your Orders page</h2>
-              <p className="muted small" style={{ marginTop: -6 }}>
-                Nothing changes until you press the button. Check on Meesho if you&apos;re not sure.
-              </p>
-              <ul className="list">
-                {data.mismatches.map((m) => (
-                  <li key={m.subOrderNo}>
-                    <span style={{ minWidth: 0 }}>
-                      <span className="mono" style={{ wordBreak: 'break-all' }}>{m.subOrderNo}</span>
-                      <div className="small">
-                        {m.customer && <strong>{m.customer} · </strong>}
-                        Report: {m.reportStatus} · Orders page: {m.panelType || 'Not returned'}
-                      </div>
-                    </span>
-                    <button className="btn btn-sm" style={{ flexShrink: 0, alignSelf: 'center' }} onClick={() => applyToPanel(m)}>
-                      {m.reportType ? `Mark as ${m.reportType}` : 'Remove return'}
-                    </button>
-                  </li>
-                ))}
-              </ul>
+          {t.missingCost > 0 && (
+            <div className="alert alert-error">
+              {t.missingCost} order(s) have no product cost, so profit is shown too high.{' '}
+              <button className="btn btn-sm" onClick={() => setView('fix')}>Enter cost</button>
             </div>
           )}
 
-          <h2 style={{ fontSize: 15 }}>Month-wise (by order date)</h2>
+          <h2 style={{ fontSize: 15 }}>By the month the order was placed</h2>
           <div className="grid month-cards">
             {data.months.map((m) => (
-              <div className={`card month-card${month === m.month ? ' on' : ''}`} key={m.month}>
+              <div className="card month-card" key={m.month}>
                 <div className="month-head">
                   <strong style={{ fontSize: 16 }}>{monthLabel(m.month)}</strong>
                   <strong className="month-result"><Rupees value={m.profit} signed /></strong>
@@ -276,26 +351,70 @@ export default function PaymentsPage() {
                   <div className="small muted">No payment yet</div>
                 )}
                 {m.unpaidOrders > 0 && <div className="small" style={{ color: 'var(--amber)' }}>{m.unpaidOrders} order(s) not paid yet</div>}
-                {m.missingCost > 0 && (
-                  <div className="small" style={{ color: 'var(--amber)' }}>
-                    {m.missingCost} order(s) have no product cost, so profit is shown too high
-                  </div>
-                )}
 
                 <button
                   className="btn btn-sm"
                   style={{ marginTop: 10 }}
-                  onClick={() => setMonth(month === m.month ? '' : m.month)}
+                  onClick={() => {
+                    setMonth(m.month);
+                    setTab('');
+                    setView('orders');
+                  }}
                 >
-                  {month === m.month ? 'Show all months' : 'Show these orders'}
+                  Show these orders
                 </button>
               </div>
             ))}
           </div>
 
-          <h2 style={{ fontSize: 15, marginTop: 20 }}>
-            Orders{month && ` · ${monthLabel(month)}`}
-          </h2>
+          <p className="muted small" style={{ marginTop: 12 }}>
+            Profit = payment received − product cost of orders kept (delivered / shipped) − ₹{data.packagingPerOrder}{' '}
+            packaging per order − products lost to wrong returns. Returned and RTO products come back, so their cost
+            isn&apos;t counted. Only rows in the uploaded reports are counted, so upload all your reports. Meesho says
+            these amounts are estimates and can change.
+          </p>
+        </>
+      )}
+
+      {t && orders.length > 0 && view === 'dates' && (
+        <>
+          <h2 style={{ fontSize: 15 }}>By the month the money came</h2>
+          <div className="grid month-cards">
+            {data.paymentMonths.map((m) => (
+              <div className="card month-card" key={m.month}>
+                <div className="month-head">
+                  <strong style={{ fontSize: 16 }}>{monthLabel(m.month)}</strong>
+                  <strong className="month-result"><Rupees value={m.amount} signed /></strong>
+                </div>
+                <div className="small muted">{m.orders} orders · {m.rows} rows</div>
+                <div className="field-label" style={{ marginTop: 10 }}>Payment dates</div>
+                <ul className="calc">
+                  {m.dates.map((d) => (
+                    <li key={d.date}>
+                      <span>
+                        {fmtDate(d.date)} <span className="muted small">· {d.rows} row{d.rows > 1 ? 's' : ''}</span>
+                      </span>
+                      <Rupees value={d.amount} />
+                    </li>
+                  ))}
+                </ul>
+                <div className="field-label" style={{ marginTop: 10 }}>For orders placed in</div>
+                <ul className="calc">
+                  {m.orderMonths.map((o) => (
+                    <li key={o.month}>
+                      <span>{monthLabel(o.month)}</span>
+                      <Rupees value={o.amount} />
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {t && orders.length > 0 && view === 'orders' && (
+        <>
           <div className="tabs" role="tablist">
             {TABS.filter((x) => !x.key || tabCount(x.key) > 0 || tab === x.key).map((x) => (
               <button
@@ -384,31 +503,57 @@ export default function PaymentsPage() {
               </tbody>
             </table>
           </div>
+        </>
+      )}
 
-          <p className="muted small" style={{ marginTop: 12 }}>
-            Profit = payment received − product cost of orders kept (delivered / shipped) − ₹{data.packagingPerOrder}{' '}
-            packaging per order − products lost to wrong returns. Returned and RTO products come back, so their cost
-            isn&apos;t counted. Only rows in the uploaded reports are counted: a charge from a report you haven&apos;t
-            uploaded won&apos;t show here. Meesho says these amounts are estimates and can change.
-            {data.notInPanel > 0 && ` ${data.notInPanel} order(s) have no label uploaded, so they have no customer name.`}
-          </p>
+      {data && view === 'fix' && (
+        <>
+          {data.missingCosts.length > 0 && (
+            <CostPrompt
+              key={data.missingCosts.map((m) => m.sku).join()}
+              items={data.missingCosts}
+              title="Enter product cost to get the correct profit"
+              onSaved={load}
+            />
+          )}
 
-          {data.uploads.length > 0 && (
-            <>
-              <h2 style={{ fontSize: 15, marginTop: 20 }}>Upload history</h2>
-              <ul className="list card">
-                {data.uploads.map((u) => (
-                  <li key={u._id}>
-                    <span>
-                      {u.fileName}
-                      <div className="muted small">{fmtDate(u.createdAt)}</div>
+          {data.mismatches.length > 0 && (
+            <div className="card" style={{ marginBottom: 18, borderColor: '#f0d49a' }}>
+              <h2>{data.mismatches.length} order(s) still don&apos;t match your Orders page</h2>
+              <p className="muted small" style={{ marginTop: -6 }}>
+                These were not changed automatically: the return was marked by you and the report doesn&apos;t show it.
+                It may be newer than the report, so check on Meesho.
+              </p>
+              <ul className="list">
+                {data.mismatches.map((m) => (
+                  <li key={m.subOrderNo}>
+                    <span style={{ minWidth: 0 }}>
+                      <span className="mono" style={{ wordBreak: 'break-all' }}>{m.subOrderNo}</span>
+                      <div className="small">
+                        {m.customer && <strong>{m.customer} · </strong>}
+                        Report: {m.reportStatus} · Orders page: {m.panelType || 'Not returned'}
+                      </div>
                     </span>
-                    <span className="small nowrap">{u.inserted ?? 0} new · {u.updated ?? 0} already saved</span>
+                    <button className="btn btn-sm" style={{ flexShrink: 0, alignSelf: 'center' }} onClick={() => applyToPanel(m)}>
+                      {m.reportType ? `Mark as ${m.reportType}` : 'Remove return'}
+                    </button>
                   </li>
                 ))}
               </ul>
-            </>
+            </div>
           )}
+
+          {data.notInPanel > 0 && (
+            <div className="card" style={{ marginBottom: 18 }}>
+              <h2>{data.notInPanel} order(s) have no customer name</h2>
+              <p className="muted small" style={{ margin: 0 }}>
+                They came only from Excel, which has no customer details. They count in orders, returns and profit, but
+                not in the Customers page or fraud checks. Upload their label PDF to add the customer.
+              </p>
+            </div>
+          )}
+
+          {fixCount === 0 && !data.notInPanel && <div className="card empty">Nothing to fix 🎉</div>}
         </>
       )}
 

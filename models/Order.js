@@ -41,7 +41,9 @@ const OrderSchema = new mongoose.Schema(
     addressKey: { type: String, index: true }, // normalized address, to match the same house under another name
     returnTo: String,
     // Shipping label
-    paymentType: { type: String, enum: ['Prepaid', 'COD'], default: 'Prepaid' },
+    paymentType: { type: String, enum: ['Prepaid', 'COD', 'Unknown'], default: 'Prepaid' },
+    // label = from a label PDF; excel = only known from a payment report (no customer details yet)
+    source: { type: String, enum: ['label', 'excel'], default: 'label', index: true },
     paymentText: String,
     courier: String,
     serviceType: String, // Pickup / Drop

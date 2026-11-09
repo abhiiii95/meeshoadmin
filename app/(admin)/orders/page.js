@@ -274,7 +274,11 @@ function OrdersView() {
                       )}
                     </td>
                     <td style={{ minWidth: 200 }} data-label="Customer">
-                      <strong>{o.customer?.name}</strong>{' '}
+                      {o.source === 'excel' ? (
+                        <div className="small muted">Name not available (label not uploaded)</div>
+                      ) : (
+                        <strong>{o.customer?.name}</strong>
+                      )}{' '}
                       <RiskBadge risk={data.risk?.[o.customerKey]} onClick={() => setRiskKey(o.customerKey)} />
                       <div className="muted small" title={o.customer?.address}>
                         {[o.customer?.city, o.customer?.state, o.customer?.pincode].filter(Boolean).join(', ')}

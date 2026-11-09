@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { dbConnect } from '@/lib/db';
 import { parsePaymentReport } from '@/lib/paymentReport';
+import { syncOrdersFromPayments } from '@/lib/paymentSync';
 import { buildPaymentReport } from '@/lib/payments';
 import PaymentLine from '@/models/PaymentLine';
 import PaymentUpload from '@/models/PaymentUpload';
@@ -53,13 +54,23 @@ export async function POST(req) {
     upload.updated = parsed.lines.length - result.upsertedCount;
     await upload.save();
 
+    // Update orders, returns, dashboard etc. from this report
+    const subs = [...new Set(parsed.lines.map((l) => l.subOrderNo))];
+    const sync = await syncOrdersFromPayments({ subs });
+
+    const days = (field) =>
+      [...new Set(parsed.lines.map((l) => l[field]).filter(Boolean).map((d) => d.toISOString().slice(0, 10)))].sort();
     return NextResponse.json({
       fileName: file.name,
       lines: parsed.lines.length,
-      orders: new Set(parsed.lines.map((l) => l.subOrderNo)).size,
+      orders: subs.length,
       inserted: upload.inserted,
       updated: upload.updated,
       warnings: parsed.warnings,
+      orderMonths: [...new Set(parsed.lines.map((l) => l.month).filter(Boolean))].sort(),
+      paymentDays: days('paymentDate'),
+      amount: Math.round(parsed.lines.reduce((s, l) => s + l.settlement, 0) * 100) / 100,
+      sync,
     });
   } catch (err) {
     console.error('Payment upload failed:', err);

@@ -145,7 +145,7 @@ export default function ReturnsPage() {
                   {i.wrongProduct && <span className="badge badge-red" style={{ marginLeft: 4 }}>Wrong product</span>}
                 </td>
                 <td data-label="Customer">
-                  <strong>{o.customer?.name}</strong>
+                  <strong>{o.customer?.name || 'Name not available'}</strong>
                   <div className="muted small">{o.customer?.city} {o.customer?.pincode}</div>
                 </td>
                 <td data-label="Order">

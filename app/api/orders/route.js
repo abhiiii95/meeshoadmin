@@ -42,7 +42,7 @@ export async function GET(req) {
           customers: { $addToSet: '$customerKey' },
         },
       },
-      { $addFields: { customers: { $size: '$customers' } } },
+      { $addFields: { customers: { $size: { $setDifference: ['$customers', ['', null]] } } } },
     ]),
     // Per-tab counts for the current search/filters (ignoring the selected tab)
     Order.aggregate([
@@ -52,7 +52,7 @@ export async function GET(req) {
   ]);
 
   // How many times each customer on this page has ordered / returned overall
-  const keys = [...new Set(orders.map((o) => o.customerKey))];
+  const keys = [...new Set(orders.map((o) => o.customerKey).filter(Boolean))];
   const counts = await Order.aggregate([
     { $match: { customerKey: { $in: keys } } },
     {
